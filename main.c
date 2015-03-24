@@ -4,7 +4,7 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h>
-
+#include <string.h>
 #include "main.h"
 #include "can.h"
 #include "uart.h"
@@ -39,39 +39,73 @@ int canblocks_receive(CANBLOCKS_MESSAGE *msg)
   return 0;
 }
 
-int canblocks_send(CANBLOCKS_MESSAGE msg) {
-  uint8_t *dataptr;
+int canblocks_send(CANBLOCKS_MESSAGE *msg) {
+  char *dataptr;
+  size_t datasize;
   can_t sendmsg;
-  int iter_send;
-  msg.send = self;
-  msg.rec = rec;
-  msg.data = "herzliches Hallo vom Sender an den Empfaenger";
-  msg.command = CANP_SYNC;
-  msg.blocklen = sizeof(msg.data)/sizeof(uint8_t);
-  msg.timer = 0;
-  msg.status = CANBLOCKSM_STATE_READY;
+  int iter_send, null_in_for;
+  msg->send = self;
+  msg->rec = rec;
+  msg->data = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  datasize = strlen(msg->data);
+  msg->command = CANP_SYNC;
+  if(datasize%6 != 0)
+    msg->blocklen = (datasize/6)+1;
+  else
+    msg->blocklen = datasize/6;
+  msg->timer = 0;
+  msg->status = CANBLOCKSM_STATE_READY;
 
-  sendmsg.id = msg.rec;
-  sendmsg.data[0] = msg.send;
-  sendmsg.data[1] = msg.command;
-  dataptr = msg.data[0];
-  if(msg.command == CANP_SYNC) 
+  sendmsg.id = msg->rec;
+  sendmsg.length = 8;
+  sendmsg.data[0] = msg->send;
+  sendmsg.data[1] = msg->command;
+  dataptr = &msg->data[0];
+
+  null_in_for = 0;
+  if(msg->command == CANP_SYNC) 
   {
-    while(*dataptr != '\0') 
+    /* Send CAN_SYNC startsequence */
+    sendmsg.data[2] = CANBLOCKSM_SYNC_START;
+    sendmsg.data[3] = 0x00;
+    sendmsg.data[4] = 0x00;
+    sendmsg.data[5] = 0x00;
+    sendmsg.data[6] = msg->blocklen;
+    sendmsg.data[7] = CANBLOCKSM_SYNC_TYPE_STRING;
+
+    can_send_message(&sendmsg);
+
+    _delay_ms(10);
+
+    while(*dataptr != '\0' && !null_in_for)
     {
       for(iter_send = 2; iter_send < 8; iter_send++) 
       {
-        sendmsg.data[iter_send] = *dataptr++;
+        if(null_in_for) {
+          sendmsg.data[iter_send] = 0x00;
+        } else {
+          sendmsg.data[iter_send] = (uint8_t)*dataptr;
+        }
+        dataptr++;
+        if(*dataptr == '\0')
+          null_in_for = 1;
       }
       can_send_message(&sendmsg);
+      _delay_ms(10);
     }
+
+    /* Send CAN_SYNC Endsequence */
+    for(iter_send = 2; iter_send < 8; iter_send++) {
+      sendmsg.data[iter_send] = 0x00;
+    }
+    can_send_message(&sendmsg);
   }
   else
   {
     int iter_send;
     for(iter_send = 2; iter_send < 8; iter_send++)
     {
-      sendmsg.data[iter_send] = msg.data[iter_send - 2];
+      sendmsg.data[iter_send] = msg->data[iter_send - 2];
     }
     can_send_message(&sendmsg);
   }
@@ -116,16 +150,18 @@ int main(void)
   sei();
 
 
+  if(can_check_free_buffer()) {
+    if(can_send_message(&beef) == 0) {
+      uart_putln("canmsg konnte nicht gesendet werden");
+    }
+  } else {
+    uart_putln("kein buffer mehr frei");
+  }
+  canblocks_send(&cbm);
   while (1)
   {
-    if(can_check_free_buffer()) {
-      if(can_send_message(&beef) == 0) {
-        uart_putln("canmsg konnte nicht gesendet werden");
-      }
-    } else {
-      uart_putln("kein buffer mehr frei");
-    }
-    _delay_ms(10);
+    uart_puts("-");
+    _delay_ms(10000);
   }
   return 0;
 }
