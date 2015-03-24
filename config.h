@@ -1,7 +1,6 @@
 #ifndef	CONFIG_H
 #define	CONFIG_H
 
-#warning "Default config.h used!"
 #define CAN_CONFIG_LOADED
 
 // -----------------------------------------------------------------------------

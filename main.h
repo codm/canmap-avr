@@ -1,3 +1,11 @@
+#ifndef MAIN_H_
+#define MAIN_H_
+/*
+   Standard defintions
+   */
+#define F_CPU 16000000UL
+#define BAUD 9600UL
+
 /*
   CAN Definitions
   */
@@ -45,4 +53,5 @@ typedef struct {
     char* data;
     uint8_t status; // 0: waiting, 1: transmittions, 2: ready
 } CANBLOCKS_MESSAGE;
+#endif
 
