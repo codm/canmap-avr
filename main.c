@@ -1,16 +1,19 @@
 // coding: utf-8
 
 #include <avr/io.h>
-#include <avr/interrupt.h>
+ #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h>
 #include <string.h>
+#include <stdio.h>
 #include "main.h"
 #include "can.h"
 #include "uart.h"
 
 uint8_t self = 0x01;
 uint8_t rec = 0xff;
+
+char uart_buff[256];
 
 CANBLOCKS_MESSAGE cbm;
 
@@ -63,7 +66,7 @@ int canblocks_send(CANBLOCKS_MESSAGE *msg) {
   dataptr = &msg->data[0];
 
   null_in_for = 0;
-  if(msg->command == CANP_SYNC) 
+  if(msg->command == CANP_SYNC)
   {
     /* Send CAN_SYNC startsequence */
     sendmsg.data[2] = CANBLOCKSM_SYNC_START;
@@ -75,11 +78,11 @@ int canblocks_send(CANBLOCKS_MESSAGE *msg) {
 
     can_send_message(&sendmsg);
 
-    _delay_ms(10);
+    _delay_ms(CANBLOCKS_DELAY);
 
     while(*dataptr != '\0' && !null_in_for)
     {
-      for(iter_send = 2; iter_send < 8; iter_send++) 
+      for(iter_send = 2; iter_send < 8; iter_send++)
       {
         if(null_in_for) {
           sendmsg.data[iter_send] = 0x00;
@@ -91,7 +94,7 @@ int canblocks_send(CANBLOCKS_MESSAGE *msg) {
           null_in_for = 1;
       }
       can_send_message(&sendmsg);
-      _delay_ms(10);
+      _delay_ms(CANBLOCKS_DELAY);
     }
 
     /* Send CAN_SYNC Endsequence */
@@ -112,7 +115,10 @@ int canblocks_send(CANBLOCKS_MESSAGE *msg) {
   return 0;
 }
 
-
+// set CAN Filter (for others take a look in example)
+const can_filter_t can_filter[] __attribute__((__progmem__)) = {
+// Group 0
+};
 
 
 // -----------------------------------------------------------------------------
@@ -120,7 +126,7 @@ int canblocks_send(CANBLOCKS_MESSAGE *msg) {
 
 int main(void)
 {
-  can_t beef;
+  can_t beef, getmsg;
   beef.id = 0xFF;
   beef.length = 4;
   beef.data[0] = 0xDE;
@@ -131,6 +137,7 @@ int main(void)
 
   can_init(BITRATE_125_KBPS);
   can_set_mode(NORMAL_MODE);
+  can_set_filter(0, can_filter);
   uart_init();
   _delay_ms(100);
 
@@ -142,7 +149,7 @@ int main(void)
   uart_putln("");
   uart_putln("----------------");
   uart_putln("cod.m CanBlocks");
-  uart_putln("--test device program");
+  uart_putln("  test device program");
   uart_putln("  Author: Tobias Schmitt");
   uart_putln("  email: tobias.schmitt@codm.de");
   uart_putln("(c) cod.m, 2015");
@@ -160,8 +167,23 @@ int main(void)
   canblocks_send(&cbm);
   while (1)
   {
-    uart_puts("-");
-    _delay_ms(10000);
+    if(can_get_message(&getmsg)) {
+     /* sprintf(uart_buff, "[%03X] - %2X (%2X %2X %2X %2X %2X %2X %2X %2X)",
+          getmsg.id, receive.length, receive.data[0], receive.data[1],
+          getmsg.data[2], receive.data[3], receive.data[4], receive.data[5],
+          getmsg.data[6], receive.data[7]);
+      uart_putln(&uart_buff[0]);
+      art_putln("bla");*/
+      uart_puts("+ ");
+      uart_puti(getmsg.id, 16);
+      uart_puts("\t");
+      for (int i = 0; i < getmsg.length; i++) {
+        uart_puti(getmsg.data[i], 16);
+        if (i < getmsg.length-1)
+          uart_putc(':');
+      }
+      uart_putln("");
+    }
   }
   return 0;
 }
