@@ -1,6 +1,7 @@
 #ifndef	CONFIG_H
 #define	CONFIG_H
 
+#warning "Default config.h used!"
 #define CAN_CONFIG_LOADED
 
 // -----------------------------------------------------------------------------
@@ -75,7 +76,5 @@
 
 // only available if CAN_TX_BUFFER_SIZE > 0
 #define CAN_FORCE_TX_ORDER		1
-#include<inttypes.h>
 
-typedef const uint8_t   prog_uint8_t __attribute__((__progmem__));
 #endif	// CONFIG_H

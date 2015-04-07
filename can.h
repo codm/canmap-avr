@@ -398,7 +398,7 @@ can_disable_filter(uint8_t number);
  */
 extern void
 can_static_filter(const uint8_t *filter_array);
-//can_static_filter(const uint8_t PROGMEM *filter_array);
+
 // ----------------------------------------------------------------------------
 /**
  * \ingroup	can_interface
