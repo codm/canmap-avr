@@ -10,18 +10,18 @@
 // Includes
 #include <avr/io.h>
 #include <stdlib.h>
-#include "main.h"
+//#include "main.h"
 
 
 // Berechnungen
 #ifndef F_CPU
 #define F_CPU 16000000UL
-#warning uart.h: F_CPU was not defined. Default set to 1MHz
+// #warning uart.h: F_CPU was not defined. Default set to 1MHz
 #endif
 
 #ifndef BAUD
-#define BAUD 9600
-#warning uart.h: BAUD was not defined. Default set to 9600
+#define BAUD 9600UL
+// #warning uart.h: BAUD was not defined. Default set to 9600
 #endif
 
 #define UBRR_VAL ((F_CPU+BAUD*8)/(BAUD*16)-1)

@@ -6,9 +6,10 @@
 #include <util/delay.h>
 #include <string.h>
 #include <stdio.h>
-#include "main.h"
-#include "can.h"
+
+#include "main.h" 
 #include "uart.h"
+#include "can.h"
 
 uint8_t self = 0x01;
 uint8_t rec = 0xff;
@@ -116,9 +117,9 @@ char uart_buff[256];
 //}
 
 // set CAN Filter (for others take a look in example)
-const can_filter_t can_filter[] __attribute__((__progmem__)) = {
-// Group 0
-};
+//const can_filter_t can_filter[] __attribute__((__progmem__)) = {
+//// Group 0
+//};
 
 int can_printdebug(char *prefix, can_t *message) {
   /*char buff[96];
@@ -137,7 +138,7 @@ int can_printdebug(char *prefix, can_t *message) {
 
 int main(void)
 {
-  can_t beef, getmsg;
+  can_t beef/*, getmsg*/;
   beef.id = 0xFF;
   beef.length = 4;
   beef.data[0] = 0xDE;
@@ -166,6 +167,7 @@ int main(void)
   uart_putln("(c) cod.m, 2015");
   uart_putln("----------------");
   sei();
+  can_send(beef);
 
 
   if(/*can_check_free_buffer()*/0) {
@@ -179,7 +181,7 @@ int main(void)
   while (1)
   {
     if(0/*can_get_message(&getmsg)*/) {
-      can_printdebug("<<", &getmsg);
+      // can_printdebug("<<", &getmsg);
     }
   }
   return 0;
