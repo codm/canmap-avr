@@ -166,6 +166,7 @@ int main(void)
   uart_putln("  email: tobias.schmitt@codm.de");
   uart_putln("(c) cod.m, 2015");
   uart_putln("----------------");
+  can_init(4);
   sei();
   can_send(beef);
 
