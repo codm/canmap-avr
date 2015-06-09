@@ -7,7 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "main.h" 
+#include "main.h"
 #include "uart.h"
 #include "can.h"
 
@@ -139,12 +139,16 @@ int can_printdebug(char *prefix, can_t *message) {
 int main(void)
 {
   can_t beef/*, getmsg*/;
-  beef.id = 0xFF;
-  beef.length = 4;
+  beef.id = 0x01;
+  beef.length = 8;
   beef.data[0] = 0xDE;
   beef.data[1] = 0xAD;
   beef.data[2] = 0xBE;
   beef.data[3] = 0xEF;
+  beef.data[4] = 0xDE;
+  beef.data[5] = 0xAD;
+  beef.data[6] = 0xBE;
+  beef.data[7] = 0xEF;
   // Initialize CAN Bus
 
   //can_init(BITRATE_125_KBPS);
@@ -175,7 +179,7 @@ int main(void)
     if(/*can_send_message(&beef) == 0*/0) {
       uart_putln("canmsg konnte nicht gesendet werden");
     }
-  } else {
+  } else  if(0){
     uart_putln("kein buffer mehr frei");
   }
   /*canblocks_send(&cbm); */
@@ -187,4 +191,3 @@ int main(void)
   }
   return 0;
 }
-

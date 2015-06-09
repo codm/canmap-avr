@@ -80,7 +80,7 @@ OBJDIR = build
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = main.c uart.c can.c
+SRC = main.c uart.c can.c can_buffer.c
 
 
 # List C++ source files here. (C dependencies are automatically generated.)

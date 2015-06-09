@@ -4,6 +4,7 @@
 #ifndef F_CPU
 #define F_CPU 16000000UL
 #endif
+#include <avr/io.h>
 
 // -----------------------------------------------------------------------------
 // pin and register definitions
@@ -13,6 +14,8 @@
 #define CAN_PORT DDRD
 #define CAN_RX PD6
 #define CAN_TX PD7
+#define CAN_RX_BUFFER_SIZE 16
+#define CAN_TX_BUFFER_SIZE 8
 
 // -----------------------------------------------------------------------------
 // can bus general definitions
@@ -44,6 +47,8 @@
 #define CAN_SELF 0x01
 #define CAN_OTHER 0x02
 
+#define CAN_ALL_FILTER 0xff
+
 
 // -----------------------------------------------------------------------------
 // typedefinitions
@@ -71,10 +76,48 @@ typedef struct {
 } CANBLOCKS_MESSAGE;
 
 
-// -----------------------------------------------------------------------------
-// AT90CAN128 Can function definition
-// -----------------------------------------------------------------------------
 
 extern int can_init(uint8_t bitrate);
 extern int can_send(CANMESSAGE msg);
+extern uint8_t at90can_disable_filter(uint8_t number);
+extern void _disable_mob_interrupt(uint8_t mob);
+
+
+extern __attribute__ ((gnu_inline)) inline void _enter_standby_mode(void)
+{
+	// request abort
+	CANGCON = (1 << ABRQ);
+	
+	// wait until receiver is not busy
+	while (CANGSTA & (1 << RXBSY))
+		;
+	
+	// request standby mode
+	CANGCON = 0;
+	
+	// wait until the CAN Controller has entered standby mode
+	while (CANGSTA & (1 << ENFG))
+		;
+}
+extern __attribute__ ((gnu_inline)) inline void _leave_standby_mode(void)
+{
+	// save CANPAGE register
+	uint8_t canpage = CANPAGE;
+	
+	// reenable all MObs
+	for (uint8_t i=0;i<15;i++) {
+		CANPAGE = i << 4;
+		CANCDMOB = CANCDMOB;
+	}
+	
+	// restore CANPAGE
+	CANPAGE = canpage;
+	
+	// request normal mode
+	CANGCON = (1 << ENASTB);
+	
+	// wait until the CAN Controller has left standby mode
+	while ((CANGSTA & (1 << ENFG)) == 0)
+		;
+}
 #endif

@@ -2,6 +2,12 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include "can.h"
+#include "can_buffer.h"
+
+can_buffer_t can_rx_buffer;
+can_buffer_t can_tx_buffer;
+can_t can_rx_list[CAN_RX_BUFFER_SIZE];
+can_t can_tx_list[CAN_TX_BUFFER_SIZE];
 
 const prog_char _at90can_cnf[8][3] = {
   // 10 kbps
@@ -47,98 +53,40 @@ const prog_char _at90can_cnf[8][3] = {
 };
 
 int can_init(uint8_t bitrate) {
-  CAN_PORT |= _BV(CAN_TX);
-  CAN_PORT &= ~_BV(CAN_RX);
-
   //  security check
-  if (bitrate >= 8) return 0;
-
-  //  number of the MOb
-  uint8_t mob;
-  // set rx and tx pins
-  CAN_PORT &= ~(1 << CAN_RX);
-  CAN_PORT |= (1 << CAN_TX);
-
-  //Reset CAN Controller
-  CANGCON |= (1 << SWRES);
-  CANGCON = 0x00;
-
-
-  // reset all registers
-  CANSIT2 = 0X00;
-  CANSIT1 = 0X00;
-  CANGIT = 0x00;
-  CANGIE = 0x00;
-  CANEN1 = 0x00;
-  CANEN2 = 0x00;
-  CANIE1 = 0x00;
-  CANIE2 = 0x00;
-
-  // set autoincrement
-  CANPAGE &= ~(1 << AINC);
-
-  // reset all mob
-  for (mob = 0; mob < NR_MOBS; mob++)
-  {
-    CANPAGE  = (mob << 4);
-    CANIDT1 = 0x00;  //  reset ID-Tag
-    CANIDT2 = 0x00;
-    CANIDT3 = 0x00;
-    CANIDT4 = 0x00;
-
-    CANIDM1 = 0x00;  //  reset ID-Mask
-    CANIDM2 = 0x00;
-    CANIDM3 = 0x00;
-    CANIDM4 = 0x00;
-
-    CANSTMOB = 0x00;  //  reset MOb status
-    CANCDMOB = 0x00;  //  disable MOb
-  }
+  if (bitrate >= 8)
   return 0;
 
+  // switch CAN controller to reset mode
+  CANGCON |= (1 << SWRES);
 
-  // set CAN Bit Timing,(see datasheet page 260)
+  // set CAN Bit Timing
+  // (see datasheet page 260)
   CANBT1 = pgm_read_byte(&_at90can_cnf[bitrate][0]);
   CANBT2 = pgm_read_byte(&_at90can_cnf[bitrate][1]);
   CANBT3 = pgm_read_byte(&_at90can_cnf[bitrate][2]);
 
-  // set config to MObs 1 and 2
-  // MOb 1 soll empfangen
-  // MOb 2 soll senden
-  for (mob = 1; mob < 3; mob++)
-  {
-    CANPAGE  = (mob << 4);
-    CANSTMOB = 0x00;  //  reset MOb status
-    switch (mob)
-    {
-      case 1:
-        CANCDMOB = 0x80;  //  RX
-        CANIDT1  = 0x00;  //  set ID-Tag
-        CANIDT2  = 0x00;
+  // activate CAN transmit- and receive-interrupt
+  CANGIT = 0;
+  CANGIE = (1 << ENIT) | (1 << ENRX) | (1 << ENTX);
 
-        CANIDM1  = 0x00;  //  set ID-Mask, receive all
-        CANIDM2  = 0x00;
-        break;
+  // set timer prescaler to 199 which results in a timer
+  // frequency of 10 kHz (at 16 MHz)
+  CANTCON = 199;
 
-      case 2:
-        CANIDT1  = 0x00;  //  set ID-Tag
-        CANIDT2  = 0x00;
-        break;
+  // disable all filters
+  at90can_disable_filter( 0xff );
 
-      default:
-        return 0;
-    }
-  }
+  #if CAN_RX_BUFFER_SIZE > 0
+  can_buffer_init( &can_rx_buffer, CAN_RX_BUFFER_SIZE, can_rx_list );
+  #endif
 
-  //  Enable all required interrupts
-  CANGIE  = 0xB0;  // ENIT, ENRX, ENTX
-  CANIE2  = 0x06;  // MOb 1, MOb 2 aktivieren
+  #if CAN_TX_BUFFER_SIZE > 0
+  can_buffer_init( &can_tx_buffer, CAN_TX_BUFFER_SIZE, can_tx_list );
+  #endif
 
-  //  switch CAN on
-  CANGCON |= (1<<ENASTB);
-
-  //  wait for EnableFlag
-  while (!(CANGSTA & (1<<ENFG)));
+  // activate CAN controller
+  CANGCON = (1 << ENASTB);
 
   return 1;
 }
@@ -151,13 +99,14 @@ int can_send(CANMESSAGE msg)
   mob=2;
   //  enable MOb number mob, auto increment index, start with index = 0
   CANPAGE = (mob<<4);
+  CANSTMOB &= 0;
   //  set IDE bit, length = 8
   CANCDMOB = (0<<IDE) | (msg.length);   //ide = 1: extendet, ide = 0: normal
   //  set ID
   CANIDT2 = (unsigned char) ((msg.id<<5)&0xE0);
   CANIDT1 = (unsigned char) (msg.id>>3);
   //  write data to MOb
-  for (i=0; i<8; i++)
+  for (i=0; i<msg.length; i++)
   {
     CANMSG = msg.data[i];
   }
@@ -166,4 +115,66 @@ int can_send(CANMESSAGE msg)
   //  send message
   CANCDMOB |= (1<<CONMOB0);
   return 1;
+}
+
+uint8_t at90can_disable_filter(uint8_t number)
+{
+	if (number > 14)
+	{
+		if (number == CAN_ALL_FILTER)
+		{
+			// disable interrupts
+			CANIE1 = 0;
+			CANIE2 = 0;
+
+			// disable all MObs
+			for (uint8_t i = 0;i < 15;i++) {
+				CANPAGE = (i << 4);
+
+				// disable MOb (read-write required)
+				CANCDMOB &= 0;
+				CANSTMOB &= 0;
+			}
+
+			// mark all MObs as free
+			#if CAN_RX_BUFFER_SIZE == 0
+			_messages_waiting = 0;
+			#endif
+
+			#if CAN_TX_BUFFER_SIZE == 0
+			_free_buffer = 15;
+			#endif
+
+			return 1;
+		}
+
+		// it is only possible to serve a maximum of 15 filters
+		return 0;
+	}
+
+	// set CAN Controller to standby mode
+	_enter_standby_mode();
+
+	CANPAGE = number << 4;
+
+	// reset flags
+	CANSTMOB &= 0;
+	CANCDMOB = 0;
+
+	_disable_mob_interrupt(number);
+
+	// re-enable CAN Controller
+	_leave_standby_mode();
+
+	return 1;
+}
+
+
+
+void _disable_mob_interrupt(uint8_t mob)
+{
+	if (mob < 8)
+		CANIE2 &= ~(1 << mob);
+	else
+		CANIE1 &= ~(1 << (mob - 8));
 }
