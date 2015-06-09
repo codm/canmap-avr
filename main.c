@@ -122,14 +122,14 @@ char uart_buff[256];
 //};
 
 int can_printdebug(char *prefix, can_t *message) {
-  /*char buff[96];
-  sprintf(buff, "%s [%04X] - %2d (%02X %02X %02X %02X %02X %02X %02X %02X)",
+    /*char buff[96];
+      sprintf(buff, "%s [%04X] - %2d (%02X %02X %02X %02X %02X %02X %02X %02X)",
       prefix, (unsigned int)message->id, message->length, message->data[0],
       message->data[1], message->data[2], message->data[3], message->data[4],
       message->data[5], message->data[6], message->data[7]);
-  uart_putln(&buff[0]);*/
-  uart_puti(message->data[1], 16);
-  return 1;
+      uart_putln(&buff[0]);*/
+    uart_puti(message->data[1], 16);
+    return 1;
 }
 
 
@@ -138,56 +138,67 @@ int can_printdebug(char *prefix, can_t *message) {
 
 int main(void)
 {
-  can_t beef/*, getmsg*/;
-  beef.id = 0x01;
-  beef.length = 8;
-  beef.data[0] = 0xDE;
-  beef.data[1] = 0xAD;
-  beef.data[2] = 0xBE;
-  beef.data[3] = 0xEF;
-  beef.data[4] = 0xDE;
-  beef.data[5] = 0xAD;
-  beef.data[6] = 0xBE;
-  beef.data[7] = 0xEF;
-  // Initialize CAN Bus
+    can_t beef/*, getmsg*/;
+    beef.id = 0x01;
+    beef.length = 8;
+    beef.data[0] = 0xDE;
+    beef.data[1] = 0xAD;
+    beef.data[2] = 0xBE;
+    beef.data[3] = 0xEF;
+    beef.data[4] = 0xDE;
+    beef.data[5] = 0xAD;
+    beef.data[6] = 0xBE;
+    beef.data[7] = 0xEF;
+    // Initialize CAN Bus
 
-  //can_init(BITRATE_125_KBPS);
-  //can_set_mode(NORMAL_MODE);
-  //can_set_filter(0, can_filter);
-  uart_init();
-  _delay_ms(100);
+    //can_init(BITRATE_125_KBPS);
+    //can_set_mode(NORMAL_MODE);
+    //can_set_filter(0, can_filter);
+    uart_init();
+    _delay_ms(100);
 
-  /*
-     Everything initialized
-     put welcome on UART and
-     activate system interrupts
-     */
-  uart_putln("");
-  uart_putln("----------------");
-  uart_putln("cod.m CanBlocks");
-  uart_putln("  test device program");
-  uart_putln("  Author: Tobias Schmitt");
-  uart_putln("  email: tobias.schmitt@codm.de");
-  uart_putln("(c) cod.m, 2015");
-  uart_putln("----------------");
-  can_init(4);
-  sei();
-  can_send(beef);
+    /*
+       Everything initialized
+       put welcome on UART and
+       activate system interrupts
+       */
+    uart_putln("");
+    uart_putln("----------------");
+    uart_putln("cod.m CanBlocks");
+    uart_putln("  test device program");
+    uart_putln("  Author: Tobias Schmitt");
+    uart_putln("  email: tobias.schmitt@codm.de");
+    uart_putln("(c) cod.m, 2015");
+    uart_putln("----------------");
+    can_init(4);
+    sei();
+    can_filter_t filter = {
+        .id = 0,
+        .mask = 0,
+        .flags = {
+            .rtr = 0,
+            .extended = 0,
+        }
+    };
+    sei();
+
+    can_set_filter(0, &filter);
+    can_send(beef);
 
 
-  if(/*can_check_free_buffer()*/0) {
-    if(/*can_send_message(&beef) == 0*/0) {
-      uart_putln("canmsg konnte nicht gesendet werden");
+    if(/*can_check_free_buffer()*/0) {
+        if(/*can_send_message(&beef) == 0*/0) {
+            uart_putln("canmsg konnte nicht gesendet werden");
+        }
+    } else  if(0) {
+        uart_putln("kein buffer mehr frei");
     }
-  } else  if(0){
-    uart_putln("kein buffer mehr frei");
-  }
-  /*canblocks_send(&cbm); */
-  while (1)
-  {
-    if(0/*can_get_message(&getmsg)*/) {
-      // can_printdebug("<<", &getmsg);
+    /*canblocks_send(&cbm); */
+    while (1)
+    {
+        if(0/*can_get_message(&getmsg)*/) {
+            // can_printdebug("<<", &getmsg);
+        }
     }
-  }
-  return 0;
+    return 0;
 }
