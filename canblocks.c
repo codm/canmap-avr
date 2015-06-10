@@ -72,10 +72,10 @@ int canblocks_send(CANBLOCKS_MESSAGE *msg) {
     char *dataptr;
     size_t datasize;
     can_t sendmsg;
-    int iter_send, null_in_for;
+    int iter_send, end;
     msg->send = canid_self;
-    msg->rec = 0xAB;
-    msg->data = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    msg->rec = 0xFF;
+    msg->data = "Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hal";
     datasize = strlen(msg->data);
     msg->command = CANBLOCKS_PREFIX;
     if(datasize%6 != 0)
@@ -91,7 +91,7 @@ int canblocks_send(CANBLOCKS_MESSAGE *msg) {
     sendmsg.data[1] = msg->command;
     dataptr = &msg->data[0];
 
-    null_in_for = 0;
+    end = 0;
     if(msg->command == CANBLOCKS_PREFIX)
     {
         /* Send CAN_SYNC startsequence */
@@ -106,32 +106,24 @@ int canblocks_send(CANBLOCKS_MESSAGE *msg) {
 
         _delay_ms(CANBLOCKS_DELAY);
 
-        while(*dataptr != '\0' && !null_in_for)
+        while(*dataptr != '\0' && !end)
         {
-            for(iter_send = 2; iter_send < 8; iter_send++)
+            sendmsg.length = 8;
+            for(iter_send = 2; iter_send < 8 && !end; iter_send++)
             {
-                if(null_in_for) {
-                    sendmsg.data[iter_send] = 0x00;
-                } else {
-                    sendmsg.data[iter_send] = (uint8_t)*dataptr;
-                }
+                sendmsg.data[iter_send] = (uint8_t)*dataptr;
                 dataptr++;
                 if(*dataptr == '\0')
                 {
                     iter_send++;
-                    sendmsg.data[iter_send] = CANBLOCKS_ETX;
-                    null_in_for = 1;
+                    sendmsg.data[iter_send] = CANBLOCKS_EOT;
+                    end = 1;
                 }
             }
+            sendmsg.length = iter_send;
             can_send_message(&sendmsg);
             _delay_ms(CANBLOCKS_DELAY);
         }
-
-        /* Send CAN_SYNC Endsequence */
-        for(iter_send = 2; iter_send < 8; iter_send++) {
-            sendmsg.data[iter_send] = 0x00;
-        }
-        can_send_message(&sendmsg);
     }
     else
     {

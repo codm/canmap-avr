@@ -39,6 +39,16 @@ int can_printdebug(CANBLOCKS_MESSAGE *msg) {
             uart_putc(';');
         }
         uart_putln("]");
+    } else if(msg->status == CANBLOCKSM_STATE_FIN) {
+        uart_puts("snd: ");
+        uart_puti(msg->send, 16);
+        uart_puts(" rec: ");
+        uart_puti(msg->rec, 16);
+        uart_puts(" cmd: ");
+        uart_puti(msg->command, 16);
+        uart_puts(" payload: ");
+        uart_puts(msg->data);
+        uart_putln("");
     }
     return 1;
 }
@@ -96,9 +106,10 @@ int main(void)
     canblocks_send(&cb_send);
     while (1)
     {
-        if(canblocks_receive(&cb_rec)) {
+        if(canblocks_receive(&cb_rec) == 1) {
             /* print */
             can_printdebug(&cb_rec);
+            canblocks_reset_data(&cb_rec);
         }
     }
     return 0;
