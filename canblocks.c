@@ -34,7 +34,7 @@ int canblocks_send(CANBLOCKS_MESSAGE *msg) {
     msg->rec = 0xAB;
     msg->data = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     datasize = strlen(msg->data);
-    msg->command = CANP_SYNC;
+    msg->command = CANBLOCKS_PREFIX;
     if(datasize%6 != 0)
         msg->blocklen = (datasize/6)+1;
     else
@@ -49,7 +49,7 @@ int canblocks_send(CANBLOCKS_MESSAGE *msg) {
     dataptr = &msg->data[0];
 
     null_in_for = 0;
-    if(msg->command == CANP_SYNC)
+    if(msg->command == CANBLOCKS_PREFIX)
     {
         /* Send CAN_SYNC startsequence */
         sendmsg.data[2] = CANBLOCKSM_SYNC_START;
