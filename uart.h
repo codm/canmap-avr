@@ -20,7 +20,7 @@
 #endif
 
 #ifndef BAUD
-#define BAUD 9600UL
+#define BAUD 115200UL
 // #warning uart.h: BAUD was not defined. Default set to 9600
 #endif
 
@@ -28,9 +28,9 @@
 #define BAUD_REAL (F_CPU/(16*(UBRR_VAL+1)))
 #define BAUD_ERROR ((BAUD_REAL*1000)/BAUD)
 
-#if ((BAUD_ERROR<990) || (BAUD_ERROR>1010))
+/* #if ((BAUD_ERROR<990) || (BAUD_ERROR>1010))
 #error Systematischer Fehler der Baudrate grösser 1% und damit zu hoch!
-#endif
+#endif */
 
 /* UART-Init Bsp. ATmega48 */
 
