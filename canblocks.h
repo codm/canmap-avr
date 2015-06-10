@@ -19,19 +19,18 @@
 
 #define CANBLOCKS_PREFIX 0xFA
 #define CANBLOCKS_MAX 255
-#define CANBLOCKS_START 0xFF
-#define CANBLOCKS_END 0xFE
-#define CANBLOCKS_DELAY 0x0A
-
-#define CANBLOCKST_STRING 0x01
+#define CANBLOCKS_SOH 0x01
+#define CANBLOCKS_STX 0x02
+#define CANBLOCKS_ETX 0x03
+#define CANBLOCKS_EOT 0x04
+#define CANBLOCKS_DELAY 5
 
 #define CANBLOCKSM_STATE_READY 0x00
 #define CANBLOCKSM_STATE_TRANS 0x01
 #define CANBLOCKSM_STATE_FIN   0x02
 
-#define CANBLOCKSM_SYNC_START 0x01
-
-#define CANBLOCKSM_SYNC_TYPE_STRING 0x01
+#define CANBLOCKSM_TYPE_NORMAL 0x00
+#define CANBLOCKSM_TYPE_STRING 0x01
 
 #define CAN_SELF 0x01
 #define CAN_OTHER 0x02
@@ -47,8 +46,11 @@ typedef struct {
     uint8_t command; /* command */
     uint8_t status; /* Status */
     uint8_t blocklen; /* Number of 8bit Blocks */
-    uint32_t timer; /* Timer */
+    uint8_t type; /* type of message (CANBLOCKSM_TYPE...) */
+    uint8_t singledata[6]; /* if just one message */
     char* data; /* Full Data Blocklength */
+    char  blockdata[CANBLOCKS_DATA_MAX];
+    uint32_t timer; /* Timer */
 } CANBLOCKS_MESSAGE;
 
 
@@ -58,6 +60,5 @@ extern int canblocks_receive(CANBLOCKS_MESSAGE *msg);
 extern int canblocks_send(CANBLOCKS_MESSAGE *msg);
 
 /* Global Variables */
-CANBLOCKS_MESSAGE canblocks_message;
 #endif
 

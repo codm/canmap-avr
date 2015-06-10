@@ -20,16 +20,26 @@ uint8_t rec = 0xff;
 
 char uart_buff[256];
 
+CANBLOCKS_MESSAGE cb_rec;
+CANBLOCKS_MESSAGE cb_send;
 
 
-int can_printdebug(char *prefix, can_t *message) {
-    /*char buff[96];
-      sprintf(buff, "%s [%04X] - %2d (%02X %02X %02X %02X %02X %02X %02X %02X)",
-      prefix, (unsigned int)message->id, message->length, message->data[0],
-      message->data[1], message->data[2], message->data[3], message->data[4],
-      message->data[5], message->data[6], message->data[7]);
-      uart_putln(&buff[0]);*/
-    uart_puti(message->data[1], 16);
+int can_printdebug(CANBLOCKS_MESSAGE *msg) {
+    int i;
+    if(msg->type == CANBLOCKSM_TYPE_NORMAL) {
+        uart_puts("snd: ");
+        uart_puti(msg->send, 16);
+        uart_puts(" rec: ");
+        uart_puti(msg->rec, 16);
+        uart_puts(" cmd: ");
+        uart_puti(msg->command, 16);
+        uart_puts(" [");
+        for(i = 0; i < 6; i++) {
+            uart_puti(msg->singledata[i], 16);
+            uart_putc(';');
+        }
+        uart_putln("]");
+    }
     return 1;
 }
 
@@ -39,7 +49,8 @@ int can_printdebug(char *prefix, can_t *message) {
 
 int main(void)
 {
-    can_t beef/*, getmsg*/;
+    /*
+    can_t beef;
     beef.id = 0x01;
     beef.length = 8;
     beef.data[0] = 0xDE;
@@ -50,6 +61,7 @@ int main(void)
     beef.data[5] = 0xAD;
     beef.data[6] = 0xBE;
     beef.data[7] = 0xEF;
+    */
 
     uart_init();
     _delay_ms(100);
@@ -79,26 +91,14 @@ int main(void)
     sei();
 
     can_set_filter(0, &filter);
-    can_send_message(&beef);
+    /* can_send_message(&beef); */
 
-    canblocks_send(&canblocks_message);
+    canblocks_send(&cb_send);
     while (1)
     {
-        if (can_check_message())
-        {
-            can_t msg;
-
-            // Try to read the message
-            if (can_get_message(&msg))
-            {
-                // If we received a message resend it with a different id
-
-                // Send the new message
-                //can_send_message(&msg);
-                uart_puts("+: ");
-                uart_puti(msg.data[1], 10);
-                uart_putln("");
-            }
+        if(canblocks_receive(&cb_rec)) {
+            /* print */
+            can_printdebug(&cb_rec);
         }
     }
     return 0;
