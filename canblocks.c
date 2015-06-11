@@ -1,48 +1,65 @@
 #include "canblocks.h"
+#include "uart.h"
 
-void canblocks_reset_data(CANBLOCKS_MESSAGE *msg) {
+can_t getm;
+canblocksmsg_t *gmsg;
+canblocksmsg_t cbl_buffer[CANBLOCKS_BUFFER_SIZE];
+
+int _buffer_get_free_slot(canblocksmsg_t **msg);
+void _buffer_copy_values(canblocksmsg_t *dst, canblocksmsg_t *src);
+int _buffer_get_sender(canblocksmsg_t **msg, uint8_t sender);
+
+void canblocks_reset_data(canblocksmsg_t *msg) {
     int i;
     msg->send = 0;
     msg->rec = 0;
     msg->command = 0;
     msg->status = CANBLOCKSM_STATE_READY;
     msg->blocklen = 0;
-    msg->data = &msg->blockdata[0];
+    msg->type = CANBLOCKSM_TYPE_NORMAL;
     for(i = 0; i < CANBLOCKS_DATA_MAX; i++) {
-        msg->blockdata[i] = 0;
+        msg->blockdata[i] = '\0';
     }
+    msg->data = &msg->blockdata[0];
     for(i = 0; i < 6; i++) {
         msg->singledata[i] = 0;
     }
     msg->timer = 0;
 }
-int canblocks_receive(CANBLOCKS_MESSAGE *msg) {
+
+int canblocks_receive(canblocksmsg_t *msg) {
     // int len = 0;
-    can_t getm;
     if(can_check_message()) {
         if(can_get_message(&getm)) {
             if(getm.data[1] == CANP_SYNC) {
+                /* only if this is start header */
                 if(getm.data[2] == CANBLOCKS_SOH) {
-                    msg->rec = getm.id;
-                    msg->send = getm.data[0];
-                    msg->command = getm.data[1];
-                    msg->blocklen = getm.data[6];
-                    msg->type = getm.data[7];
-                    msg->status =  CANBLOCKSM_STATE_TRANS;
-                    msg->data = &msg->blockdata[0];
+                    if(!_buffer_get_free_slot(&gmsg))
+                        return 0;
+                    gmsg->rec = getm.id;
+                    gmsg->send = getm.data[0];
+                    gmsg->command = getm.data[1];
+                    gmsg->blocklen = getm.data[6];
+                    gmsg->type = getm.data[7];
+                    gmsg->status =  CANBLOCKSM_STATE_TRANS;
+                    gmsg->data = &gmsg->blockdata[0];
                     return 2;
                 }
-                else if(msg->status == CANBLOCKSM_STATE_TRANS) {
+
+                /* else look for the used buffer */
+                if(_buffer_get_sender(&gmsg, getm.data[0])) {
                     int iter;
                     for(iter = 2; iter < 8; iter++) {
                         if(getm.data[iter] == CANBLOCKS_EOT) {
-                            *msg->data = '\0';
+                            *gmsg->data = '\0';
+                            gmsg->status = CANBLOCKSM_STATE_FIN;
+                            _buffer_copy_values(msg, gmsg);
+                            canblocks_reset_data(gmsg);
                             msg->data = &msg->blockdata[0];
-                            msg->status = CANBLOCKSM_STATE_FIN;
                             return 1;
                         }
-                        *msg->data = getm.data[iter];
-                        msg->data++;
+                        *gmsg->data = getm.data[iter];
+                        gmsg->data++;
                     }
                     return 2;
                 }
@@ -64,26 +81,22 @@ int canblocks_receive(CANBLOCKS_MESSAGE *msg) {
                 return 1;
             }
         }
-        return 0; /* error while getting message */
+        return 9; /* error while getting message */
     }
     return 0; /* no message available */
 }
-int canblocks_send(CANBLOCKS_MESSAGE *msg) {
+
+int canblocks_send(canblocksmsg_t *msg) {
     char *dataptr;
     size_t datasize;
     can_t sendmsg;
     int iter_send, end;
-    msg->send = canid_self;
-    msg->rec = 0xFF;
-    msg->data = "Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hallo Hal";
     datasize = strlen(msg->data);
-    msg->command = CANBLOCKS_PREFIX;
     if(datasize%6 != 0)
         msg->blocklen = (datasize/6)+1;
     else
         msg->blocklen = datasize/6;
     msg->timer = 0;
-    msg->status = CANBLOCKSM_STATE_READY;
 
     sendmsg.id = msg->rec;
     sendmsg.length = 8;
@@ -135,3 +148,44 @@ int canblocks_send(CANBLOCKS_MESSAGE *msg) {
     }
     return 0;
 }
+
+int _buffer_get_free_slot(canblocksmsg_t **msg) {
+    int i;
+    for(i = 0; i < CANBLOCKS_BUFFER_SIZE; i++) {
+        if(cbl_buffer[i].status == CANBLOCKSM_STATE_READY) {
+            *msg = &cbl_buffer[i];
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void _buffer_copy_values(canblocksmsg_t *dst, canblocksmsg_t *src) {
+    int i;
+    dst->send = src->send;
+    dst->rec = src->rec;
+    dst->command = src->command;
+    dst->status = src->status;
+    dst->blocklen = src->blocklen;
+    dst->type = src->type;
+    dst->timer = src->timer;
+    for(i = 0; i < CANBLOCKS_DATA_MAX; i++) {
+        dst->blockdata[i] = src->blockdata[i];
+    }
+    for(i = 0; i < 6; i++) {
+        dst->singledata[i] = src->singledata[i];
+    }
+}
+
+int _buffer_get_sender(canblocksmsg_t **msg, uint8_t sender) {
+    int i;
+    for(i = 0; i < CANBLOCKS_BUFFER_SIZE; i++) {
+        if(cbl_buffer[i].send == sender
+            && cbl_buffer[i].status == CANBLOCKSM_STATE_TRANS) {
+            *msg = &cbl_buffer[i];
+            return 1;
+        }
+    }
+    return 0;
+}
+

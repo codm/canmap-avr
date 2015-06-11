@@ -20,14 +20,15 @@ uint8_t rec = 0xff;
 
 char uart_buff[256];
 
-CANBLOCKS_MESSAGE cb_rec;
-CANBLOCKS_MESSAGE cb_send;
+canblocksmsg_t cb_rec;
+canblocksmsg_t cb_send;
 
 
-int can_printdebug(CANBLOCKS_MESSAGE *msg) {
+int can_printdebug(char prefix, canblocksmsg_t *msg) {
     int i;
     if(msg->type == CANBLOCKSM_TYPE_NORMAL) {
-        uart_puts("snd: ");
+        uart_putc(prefix);
+        uart_puts(" single - snd: ");
         uart_puti(msg->send, 16);
         uart_puts(" rec: ");
         uart_puti(msg->rec, 16);
@@ -39,15 +40,14 @@ int can_printdebug(CANBLOCKS_MESSAGE *msg) {
             uart_putc(';');
         }
         uart_putln("]");
-    } else if(msg->status == CANBLOCKSM_STATE_FIN) {
-        uart_puts("snd: ");
+    } else if(msg->type == CANBLOCKSM_TYPE_STRING) {
+        uart_putc(prefix);
+        uart_puts(" block - snd: ");
         uart_puti(msg->send, 16);
         uart_puts(" rec: ");
         uart_puti(msg->rec, 16);
-        uart_puts(" cmd: ");
-        uart_puti(msg->command, 16);
-        uart_puts(" payload: ");
-        uart_puts(msg->data);
+        uart_puts(" msg: ");
+        uart_puts(&msg->blockdata[0]);
         uart_putln("");
     }
     return 1;
@@ -72,7 +72,7 @@ int main(void)
     beef.data[6] = 0xBE;
     beef.data[7] = 0xEF;
     */
-
+    /* init cbsend */
     uart_init();
     _delay_ms(100);
 
@@ -103,14 +103,20 @@ int main(void)
     can_set_filter(0, &filter);
     /* can_send_message(&beef); */
 
-    canblocks_send(&cb_send);
     while (1)
     {
         if(canblocks_receive(&cb_rec) == 1) {
             /* print */
-            can_printdebug(&cb_rec);
+            int b;
+            can_printdebug('+', &cb_rec);
+            b = cb_rec.send;
+            cb_rec.send = cb_rec.rec;
+            cb_rec.rec = b;
+            canblocks_send(&cb_rec);
+            can_printdebug('-', &cb_rec);
             canblocks_reset_data(&cb_rec);
         }
     }
     return 0;
 }
+

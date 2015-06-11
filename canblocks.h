@@ -36,7 +36,8 @@
 #define CAN_OTHER 0x02
 
 #define CAN_ALL_FILTER 0xff
-#define CANBLOCKS_DATA_MAX 64*8
+#define CANBLOCKS_DATA_MAX 10*6 /* max 10 blocks a 6 chars */
+#define CANBLOCKS_BUFFER_SIZE 2
 
 
 /* Typedefinitions */
@@ -51,13 +52,13 @@ typedef struct {
     char* data; /* Full Data Blocklength */
     char  blockdata[CANBLOCKS_DATA_MAX];
     uint32_t timer; /* Timer */
-} CANBLOCKS_MESSAGE;
+} canblocksmsg_t;
 
 
 /* Prototypes */
-extern void canblocks_emtpy_data(CANBLOCKS_MESSAGE *msg);
-extern int canblocks_receive(CANBLOCKS_MESSAGE *msg);
-extern int canblocks_send(CANBLOCKS_MESSAGE *msg);
+extern void canblocks_reset_data(canblocksmsg_t *msg);
+extern int canblocks_receive(canblocksmsg_t *msg);
+extern int canblocks_send(canblocksmsg_t *msg);
 
 /* Global Variables */
 #endif
