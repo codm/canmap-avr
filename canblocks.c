@@ -99,6 +99,8 @@ int canblocks_send(canblocksmsg_t *msg) {
     msg->timer = 0;
 
     sendmsg.id = msg->rec;
+    sendmsg.flags.rtr = 0;
+    sendmsg.flags.extended = 0;
     sendmsg.length = 8;
     sendmsg.data[0] = msg->send;
     sendmsg.data[1] = msg->command;
