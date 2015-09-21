@@ -1,193 +1,135 @@
+/**
+  The MIT License (MIT)
+
+  Copyright (c) 2015, cod.m GmbH
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+
+
+  \brief CANBLOCKS library for AT90CAN
+   This is a CANBLOCKS extended adress implementation for AT90CAN mCs.
+   It uses the avr-can-lib ("universelle CAN Bibliothek") by Fabian Greiff.
+
+   https://github.com/dergraaf/avr-can-lib
+
+   Soon I maybe will implement this directly into the lib, because I'm very
+   aware that the performance is not in a good state.
+
+  @author  Tobias Schmitt
+  @email   tobias.schmitt@codm.de
+  @date    25.6.2015
+  */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <time.h>
+#include <sys/time.h>
+#include <sys/select.h>
+#include <sys/types.h>
+#include <linux/can.h>
+#include <netinet/in.h>
+#include <sys/ioctl.h>
+#include <string.h>
+
 #include "canblocks.h"
-#include "uart.h"
+#include "main.h"
 
-can_t getm;
-canblocksmsg_t *gmsg;
-canblocksmsg_t cbl_buffer[CANBLOCKS_BUFFER_SIZE];
+/**
+  canblocks-Buffer
+  this is not a ringbuffer, because the creation of one buffer element and
+  it's completion / deletion depends on more than 1 CAN messages, which will
+  be send asynchronously. so the buffer functions have to "search" the whole
+  array everytime.
+  */
 
-int _buffer_get_free_slot(canblocksmsg_t **msg);
-void _buffer_copy_values(canblocksmsg_t *dst, canblocksmsg_t *src);
-int _buffer_get_sender(canblocksmsg_t **msg, uint8_t sender);
+/**
+  Program Code
+  */
 
-void canblocks_reset_data(canblocksmsg_t *msg) {
-    int i;
-    msg->send = 0;
-    msg->rec = 0;
-    msg->command = 0;
-    msg->status = CANBLOCKSM_STATE_READY;
-    msg->blocklen = 0;
-    msg->type = CANBLOCKSM_TYPE_NORMAL;
-    for(i = 0; i < CANBLOCKS_DATA_MAX; i++) {
-        msg->blockdata[i] = '\0';
-    }
-    msg->data = &msg->blockdata[0];
-    for(i = 0; i < 6; i++) {
-        msg->singledata[i] = 0;
-    }
-    msg->timer = 0;
+void canblocks_init(void) {
+  
 }
 
-int canblocks_receive(canblocksmsg_t *msg) {
-    // int len = 0;
-    if(can_check_message()) {
-        if(can_get_message(&getm)) {
-            if(getm.data[1] == CANP_SYNC) {
-                /* only if this is start header */
-                if(getm.data[2] == CANBLOCKS_SOH) {
-                    if(!_buffer_get_free_slot(&gmsg))
-                        return 0;
-                    gmsg->rec = getm.id;
-                    gmsg->send = getm.data[0];
-                    gmsg->command = getm.data[1];
-                    gmsg->blocklen = getm.data[6];
-                    gmsg->type = getm.data[7];
-                    gmsg->status =  CANBLOCKSM_STATE_TRANS;
-                    gmsg->data = &gmsg->blockdata[0];
-                    return 2;
-                }
-
-                /* else look for the used buffer */
-                if(_buffer_get_sender(&gmsg, getm.data[0])) {
-                    int iter;
-                    for(iter = 2; iter < 8; iter++) {
-                        if(getm.data[iter] == CANBLOCKS_EOT) {
-                            *gmsg->data = '\0';
-                            gmsg->status = CANBLOCKSM_STATE_FIN;
-                            _buffer_copy_values(msg, gmsg);
-                            canblocks_reset_data(gmsg);
-                            msg->data = &msg->blockdata[0];
-                            return 1;
-                        }
-                        *gmsg->data = getm.data[iter];
-                        gmsg->data++;
-                    }
-                    return 2;
-                }
-                else {
-                    return 0;
-                }
-            }
-            else {
-                int iter;
-                msg->rec = getm.id;
-                msg->send = getm.data[0];
-                msg->command = getm.data[1];
-                msg->blocklen = 0;
-                msg->type = CANBLOCKSM_TYPE_NORMAL;
-                msg->status = CANBLOCKSM_STATE_FIN;
-                for(iter = 2; iter < 8; iter++) {
-                    msg->singledata[iter-2] = getm.data[iter];
-                }
-                return 1;
-            }
-        }
-        return 9; /* error while getting message */
-    }
-    return 0; /* no message available */
+int canblocks_compute_frame(int *socket, struct can_frame *frame) {
 }
 
-int canblocks_send(canblocksmsg_t *msg) {
-    char *dataptr;
-    size_t datasize;
-    can_t sendmsg;
-    int iter_send, end;
-    datasize = strlen(msg->data);
-    if(datasize%6 != 0)
-        msg->blocklen = (datasize/6)+1;
-    else
-        msg->blocklen = datasize/6;
-    msg->timer = 0;
-
-    sendmsg.id = msg->rec;
-    sendmsg.flags.rtr = 0;
-    sendmsg.flags.extended = 0;
-    sendmsg.length = 8;
-    sendmsg.data[0] = msg->send;
-    sendmsg.data[1] = msg->command;
-    dataptr = &msg->data[0];
-
-    end = 0;
-    if(msg->command == CANBLOCKS_PREFIX)
-    {
-        /* Send CAN_SYNC startsequence */
-        sendmsg.data[2] = CANBLOCKS_SOH;
-        sendmsg.data[3] = 0x00;
-        sendmsg.data[4] = 0x00;
-        sendmsg.data[5] = 0x00;
-        sendmsg.data[6] = msg->blocklen;
-        sendmsg.data[7] = CANBLOCKSM_TYPE_STRING;
-
-        can_send_message(&sendmsg);
-
-        _delay_ms(CANBLOCKS_DELAY);
-
-        while(*dataptr != '\0' && !end)
-        {
-            sendmsg.length = 8;
-            for(iter_send = 2; iter_send < 8 && !end; iter_send++)
-            {
-                sendmsg.data[iter_send] = (uint8_t)*dataptr;
-                dataptr++;
-                if(*dataptr == '\0')
-                {
-                    iter_send++;
-                    sendmsg.data[iter_send] = CANBLOCKS_EOT;
-                    end = 1;
-                }
-            }
-            sendmsg.length = iter_send;
-            can_send_message(&sendmsg);
-            _delay_ms(CANBLOCKS_DELAY);
-        }
-    }
-    else
-    {
-        int iter_send;
-        for(iter_send = 2; iter_send < 8; iter_send++) {
-            sendmsg.data[iter_send] = msg->singledata[iter_send - 2];
-        }
-        can_send_message(&sendmsg);
-    }
-    return 0;
+int canblocks_get_frame(struct canblocks_frame *dst) {
 }
 
-int _buffer_get_free_slot(canblocksmsg_t **msg) {
-    int i;
-    for(i = 0; i < CANBLOCKS_BUFFER_SIZE; i++) {
-        if(cbl_buffer[i].status == CANBLOCKSM_STATE_READY) {
-            *msg = &cbl_buffer[i];
-            return 1;
-        }
-    }
-    return 0;
+int canblocks_send_frame(struct canblocks_frame *frame) {
+
+    /* zero rfds and 10000 usec wait */
+    /* single frame */
+    /* build first frame */
+    /* set sock option for timeout */
+    /* wait for FC with timeout */
+
+    /* while still bytes to send */
 }
 
-void _buffer_copy_values(canblocksmsg_t *dst, canblocksmsg_t *src) {
-    int i;
-    dst->send = src->send;
-    dst->rec = src->rec;
-    dst->command = src->command;
-    dst->status = src->status;
-    dst->blocklen = src->blocklen;
-    dst->type = src->type;
-    dst->timer = src->timer;
-    for(i = 0; i < CANBLOCKS_DATA_MAX; i++) {
-        dst->blockdata[i] = src->blockdata[i];
+
+int canblocks_fr2str(char *dst, struct canblocks_frame *src) {
+    char *buffer = dst;
+    int i, n;
+    n = sprintf(buffer, "%02x;", src->sender);
+    buffer = buffer+n;
+    n = sprintf(buffer, "%02x;", src->rec);
+    buffer = buffer+n;
+    n = sprintf(buffer, "%04u;", src->dl);
+    buffer = buffer+n;
+    for(i = 0; i < src->dl; i++) {
+        n = sprintf(buffer, "%02x", src->data[i]);
+        buffer = buffer+n;
     }
-    for(i = 0; i < 6; i++) {
-        dst->singledata[i] = src->singledata[i];
-    }
+    *buffer = '\n';
+    return 1;
 }
 
-int _buffer_get_sender(canblocksmsg_t **msg, uint8_t sender) {
-    int i;
-    for(i = 0; i < CANBLOCKS_BUFFER_SIZE; i++) {
-        if(cbl_buffer[i].send == sender
-            && cbl_buffer[i].status == CANBLOCKSM_STATE_TRANS) {
-            *msg = &cbl_buffer[i];
-            return 1;
-        }
+int canblocks_str2fr(char *src, struct canblocks_frame *dst) {
+    unsigned int i, sender, rec, dl;
+    uint8_t *bufdst;
+    char buffer[2*4096]; /* 4096 uint8_t a 2 characters */
+    char *bufbuff = buffer;
+    /* TODO: Secure this input via regex */
+    if(sscanf(src, "%02x;%02x;%04u;%s", &sender, &rec, &dl, buffer) < 1) {
+        return 0;
+    };
+    dst->sender = (uint8_t)sender;
+    dst->rec = (uint8_t)rec;
+    dst->dl = (uint8_t)dl;
+    dst->data = malloc(sizeof(uint8_t) * dst->dl);
+    bufdst = dst->data;
+    for(i = 0; i < dst->dl; i++) {
+        sscanf(bufbuff, "%02x", &rec); /* read 2 chars put into byte */
+        *bufdst = (uint8_t)rec;
+        bufdst++; /* iterate over array */
+        bufbuff = bufbuff + 2; /* iterate over 2 chars in string */
     }
-    return 0;
+    return 1;
+}
+
+void canblocks_reset_frame(struct canblocks_frame *dst) {
+    free(dst->data);
+    dst->sender = 0;
+    dst->rec = 0;
+    dst->dl = 0;
 }
 

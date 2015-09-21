@@ -1,65 +1,124 @@
-#ifndef CANBLOCKS_H_
-#define CANBLOCKS_H_
-
-#include "can.h"
-#include "globals.h"
-#include <avr/io.h>
-#include <util/delay.h>
-#include <stdio.h>
-#include <string.h>
-
-/* Defines */
-#define NR_MOBS 15
-#define CANP_REQUEST(a) ( a < 0x42 );
-#define CANP_REQANSWER 0x43
-#define CANP_BLINK 0x44
-#define CANP_RESET 0x45
-#define CANP_SYNC 0xFA
-#define CANP_ACK 0xFB
-
-#define CANBLOCKS_PREFIX 0xFA
-#define CANBLOCKS_MAX 255
-#define CANBLOCKS_SOH 0x01
-#define CANBLOCKS_STX 0x02
-#define CANBLOCKS_ETX 0x03
-#define CANBLOCKS_EOT 0x04
-#define CANBLOCKS_DELAY 5
-
-#define CANBLOCKSM_STATE_READY 0x00
-#define CANBLOCKSM_STATE_TRANS 0x01
-#define CANBLOCKSM_STATE_FIN   0x02
-
-#define CANBLOCKSM_TYPE_NORMAL 0x00
-#define CANBLOCKSM_TYPE_STRING 0x01
-
-#define CAN_SELF 0x01
-#define CAN_OTHER 0x02
-
-#define CAN_ALL_FILTER 0xff
-#define CANBLOCKS_DATA_MAX 10*6 /* max 10 blocks a 6 chars */
-#define CANBLOCKS_BUFFER_SIZE 2
 
 
-/* Typedefinitions */
-typedef struct {
-    uint8_t send; /* Sender */
-    uint8_t rec; /* Receiver */
-    uint8_t command; /* command */
-    uint8_t status; /* Status */
-    uint8_t blocklen; /* Number of 8bit Blocks */
-    uint8_t type; /* type of message (CANBLOCKSM_TYPE...) */
-    uint8_t singledata[6]; /* if just one message */
-    char* data; /* Full Data Blocklength */
-    char  blockdata[CANBLOCKS_DATA_MAX];
-    uint32_t timer; /* Timer */
-} canblocksmsg_t;
+/**
+The MIT License (MIT)
+
+Copyright (c) 2015, cod.m GmbH
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 
-/* Prototypes */
-extern void canblocks_reset_data(canblocksmsg_t *msg);
-extern int canblocks_receive(canblocksmsg_t *msg);
-extern int canblocks_send(canblocksmsg_t *msg);
+   \brief CANBLOCKS library for AT90CAN
+   This is a CANBLOCKS extended adress implementation for AT90CAN mCs.
+   It uses the avr-can-lib ("universelle CAN Bibliothek") by Fabian Greiff.
 
-/* Global Variables */
+   https://github.com/dergraaf/avr-can-lib
+
+   Soon I maybe will implement this directly into the lib, because I'm very
+   aware that the performance is not in a good state.
+
+   @author  Tobias Schmitt
+   @email   tobias.schmitt@codm.de
+   @date    24.6.2015
+*/
+
+#ifndef _CANBLOCKS_H
+#define _CANBLOCKS_H
+
+/*
+   Defines
+*/
+
+#define CANBLOCKS_BUFFER_SIZE        20      /* Buffer size can be chosen freely */
+#define CANBLOCKS_BLOCKSIZE          4       /* Maximum 16 Blocks  */
+#define CANBLOCKS_MIN_SEP_TIME       25      /* Min 10ms Seperation time  */
+#define CANBLOCKS_BROADCAST          0xFF    /* Broadcast Adress */
+
+#define CANBLOCKS_STATUS_SF          0x00    /* Single Frame */
+#define CANBLOCKS_STATUS_FF          0x01    /* First Frame */
+#define CANBLOCKS_STATUS_CF          0x02    /* Consecutive Frames */
+#define CANBLOCKS_STATUS_FC          0x03    /* Flow Control Frame */
+
+#define CANBLOCKS_COMPRET_COMPLETE   1       /* Transmission Complete */
+#define CANBLOCKS_COMPRET_TRANS      0       /* Transmission pending... */
+#define CANBLOCKS_COMPRET_ERROR      -1      /* No ISO-TP Frame or no fre buffer */
+
+#define CANBLOCKS_FLOWSTAT_CLEAR     0
+#define CANBLOCKS_FLOWSTAT_WAIT      1
+#define CANBLOCKS_FLOWSTAT_OVERFLOW  2
+
+/**
+  \brief Abstract struct of a ISO-TP frame
+  this is a typical ISO-TP frame for extended CAN Addressing
+*/
+struct canblocks_frame {
+    uint8_t sender; /**< Sender-ID of ISO-TP Frame */
+    uint8_t rec; /**< Receiver-ID of ISO-TP Frame */
+    uint16_t dl; /**< Length of ISO-TP Frame */
+    uint8_t* data; /**< Data Pointer of ISO-TP Frame */
+};
+
+/**
+  \brief !MANDATORY! init the needed canblocks data structs
+*/
+
+
+void canblocks_init();
+/**
+  \brief computes can_frame into internal buffer
+  This function computes a can_frame into its internal iso_tp
+  framebuffer. If this was the last frame of an ISO-TP message,
+  the funtions returns status > 0. If there are still messages missing
+  the function returns 0 and -1 if there was an error executing
+
+  @param[0] int *socket        pointer to an open CAN_SOCKET
+  @param[0] can_frame *frame can frame to be processed
+
+  @return < 0 for error, 0 if there are still messages to come
+            1 if the canblocks_frame is finished and ready to get
+*/
+int canblocks_compute_frame(int *socket, struct can_frame *frame);
+
+/**
+  \brief sends an canblocks frame over socket
+
+  @param[0] int *socket        pointer to an open CAN_SOCKET
+  @param[0] canblocks_frame *frame frame to be sent
+
+  @return EXIT_SUCCESS for success
+          EXIT_FAILURE for failure
+
+*/
+int canblocks_send_frame(int *socket, struct canblocks_frame *frame);
+
+/**
+  \brief gets a finished ISO-TP frame for further computation
+
+  @param[0] canblocks_frame **dst pointer to a frame which should be written
+
+  @return EXIT_SUCCESS for success
+          EXIT_FAILURE for failure
+*/
+int canblocks_get_frame(struct canblocks_frame *dst);
+void canblocks_reset_frame(struct canblocks_frame *dst);
+
+int canblocks_fr2str(char *dst, struct canblocks_frame *src);
+int canblocks_str2fr(char *src, struct canblocks_frame *dst);
 #endif
 
