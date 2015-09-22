@@ -46,6 +46,7 @@ THE SOFTWARE.
 */
 
 #define CANBLOCKS_BUFFER_SIZE        20      /* Buffer size can be chosen freely */
+#define CANBLOCKS_DATA_LENGTH        256
 #define CANBLOCKS_BLOCKSIZE          4       /* Maximum 16 Blocks  */
 #define CANBLOCKS_MIN_SEP_TIME       25      /* Min 10ms Seperation time  */
 #define CANBLOCKS_BROADCAST          0xFF    /* Broadcast Adress */
@@ -58,6 +59,7 @@ THE SOFTWARE.
 #define CANBLOCKS_COMPRET_COMPLETE   1       /* Transmission Complete */
 #define CANBLOCKS_COMPRET_TRANS      0       /* Transmission pending... */
 #define CANBLOCKS_COMPRET_ERROR      -1      /* No ISO-TP Frame or no fre buffer */
+#define CANBLOCKS_COMPRET_BUSY       2       /* CANBLOCKS Mechanism Busy with another message */
 
 #define CANBLOCKS_FLOWSTAT_CLEAR     0
 #define CANBLOCKS_FLOWSTAT_WAIT      1
@@ -71,7 +73,7 @@ struct canblocks_frame {
     uint8_t sender; /**< Sender-ID of ISO-TP Frame */
     uint8_t rec; /**< Receiver-ID of ISO-TP Frame */
     uint16_t dl; /**< Length of ISO-TP Frame */
-    uint8_t* data; /**< Data Pointer of ISO-TP Frame */
+    uint8_t data[CANBLOCKS_DATA_LENGTH]; /**< Data Pointer of ISO-TP Frame */
 };
 
 /**

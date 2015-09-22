@@ -64,14 +64,112 @@
   Program Code
   */
 
+struct canblock_frame cbframe;
+uint8_t cbframe_block;
+uint8_t cbframe_curr_block;
+uint8_t cbframe_ready;
+uint8_t cbframe_cf_counter;
+void cbframe_reset();
+
+
 void canblocks_init(void) {
-  
+  cbframe_reset();
 }
 
 int canblocks_compute_frame(int *socket, struct can_frame *frame) {
+  int status;
+
+  status = (frame->data[1] & 0xF0) >> 4;
+  sender = frame->data[0];
+  receiver = (frame->id);
+
+  flowcontrol.id = sender;
+  flowcontrol.length = 4;
+  flowcontrol.data[0] = receiver;
+  flowcontrol.data[1] = ((CANBLOCKS_STATUS_FC << 4) | CANBLOCKS_FLOWSTAT_CLEAR);
+  flowcontrol.data[2] = CANBLOCKS_BLOCKSIZE;
+  flowcontrol.data[3] = CANBLOCKS_MIN_SEP_TIME;
+
+  switch(status) {
+    /* 
+    single frame
+    */
+    case CANBLOCKS_STATUS_SF:
+      if(cbframe_block) {
+        return CANBLOCKS_COMPRET_BUSY;
+      }
+      /* if not busy copy frame */
+      cbframe.sender = sender;
+      cbframe.rec = receiver;
+      cbframe.length = frame->data[1] & 0x0F;
+      for(i = 0; i < cbframe.length; i++) {
+        cbframe.data[i] = frame->data[i+2];
+      }
+      /* set cbframe to ready and return complete */
+      cbframe_ready = 1;
+      return CANBLOCKS_COMPRET_COMPLETE;
+      break;
+    case CANBLOCKS_STATUS_FF:
+      /* first frame of multi */
+      if(cbframe_block) {
+        return CANBLOCKS_COMPRET_BUSY;
+      }
+      cbframe_curr_block = 0;
+      cbframe_block = 1;
+      cbframe_cf_counter = 0;
+      cbframe.sender = sender;
+      cbframe.receiver = receiver;
+      cbframe.length = frame->data[1] & 0x0F;
+      for(i = 0; i < cbframe.length; i++)
+        cbframe.data[i] = frame->data[i+3];
+
+      /* 
+        TODO: SEND FLOWCONTROL FRAME
+        */
+      return CANBLOCKS_COMPRET_TRANS;
+      break;
+    case CANBLOCKS_STATUS_CF:
+      /* consecutive frame */
+      /* simply copy the frame by length */
+      cbframe_curr_block++;
+      length = frame->length - 2; 
+      for(i = 0; i < lenght; i++) {
+        cbframe.data[cbframe_cf_counter + i] = frame->data[i+2];
+      }
+      cbframe_cf_counter += length;
+      /* look if everything's over */
+      if(cbframe_cf_counter+1 >= cbframe.dl) {
+        /* frame finished */
+        cbframe_ready = 1;
+        return CANBLOCKS_COMPRET_COMPLETE;
+      }
+      if(cbframe_curr_block % CANBLOCKS_BLOCKSIZE == 0) {
+        /* 
+          TODO: SEND FLOWCONTROL FRAME
+          */
+      }
+
+      return CANBLOCKS_COMPRET_TRANS;
+      break;
+  }
 }
 
 int canblocks_get_frame(struct canblocks_frame *dst) {
+  if(cbframe_ready) {
+    /* copy cbframe to destination frame */
+    dst->sender = cbframe.sender;
+    dst->rec = cbframe.rec;
+    dst->dl = cbframe.dl;
+    for(i = 0; i < CANBLOCKS_DATA_LENGTH; i++)
+      dst->data[i] = cbframe.data[i];
+
+    /* reset cbframe state */
+    cbframe_ready = 0;
+    cbframe_reset();
+
+    return 1;
+  }
+  return 0;
 }
 
 int canblocks_send_frame(struct canblocks_frame *frame) {
@@ -126,10 +224,12 @@ int canblocks_str2fr(char *src, struct canblocks_frame *dst) {
     return 1;
 }
 
-void canblocks_reset_frame(struct canblocks_frame *dst) {
-    free(dst->data);
-    dst->sender = 0;
-    dst->rec = 0;
-    dst->dl = 0;
+void cbframe_reset() {
+  cbframe.sender = 0x00;
+  cbframe.rec = 0x00;
+  cbframe.dl = 0;
+  for(i = 0; i < CANBLOCKS_DATA_LENGTH; i++)
+    cbframe.data[i] = 0x00;
+  cbframe_ready = 0;
+  cbframe_cf_counter = 0;
 }
-
