@@ -1,12 +1,7 @@
-// coding: utf-8
-
 /* STDLIB includes */
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include <avr/pgmspace.h>
 #include <util/delay.h>
-#include <string.h>
-#include <stdio.h>
 
 /* Project Includes */
 #include "main.h"
@@ -26,6 +21,8 @@ char uart_buff[256];
 
 int main(void)
 {
+    can_t getmsg;
+    struct canblocks_frame cblocks;
     uart_init();
     _delay_ms(100);
 
@@ -55,8 +52,13 @@ int main(void)
 
     can_set_filter(0, &filter);
 
+    canblocks_init();
     while (1)
     {
+        if(can_check_message()) {
+            if(can_get_message(&getmsg)) {
+            }
+        }
     }
     return 0;
 }

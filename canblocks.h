@@ -44,6 +44,7 @@ THE SOFTWARE.
 /*
    Defines
 */
+#include "can.h"
 
 #define CANBLOCKS_BUFFER_SIZE        20      /* Buffer size can be chosen freely */
 #define CANBLOCKS_DATA_LENGTH        256
@@ -81,7 +82,7 @@ struct canblocks_frame {
 */
 
 
-void canblocks_init();
+void canblocks_init(void);
 /**
   \brief computes can_frame into internal buffer
   This function computes a can_frame into its internal iso_tp
@@ -95,7 +96,7 @@ void canblocks_init();
   @return < 0 for error, 0 if there are still messages to come
             1 if the canblocks_frame is finished and ready to get
 */
-int canblocks_compute_frame(int *socket, struct can_frame *frame);
+int canblocks_compute_frame(can_t *frame);
 
 /**
   \brief sends an canblocks frame over socket
@@ -107,7 +108,7 @@ int canblocks_compute_frame(int *socket, struct can_frame *frame);
           EXIT_FAILURE for failure
 
 */
-int canblocks_send_frame(int *socket, struct canblocks_frame *frame);
+int canblocks_send_frame(struct canblocks_frame *frame);
 
 /**
   \brief gets a finished ISO-TP frame for further computation
@@ -123,4 +124,4 @@ void canblocks_reset_frame(struct canblocks_frame *dst);
 int canblocks_fr2str(char *dst, struct canblocks_frame *src);
 int canblocks_str2fr(char *src, struct canblocks_frame *dst);
 #endif
-
+  

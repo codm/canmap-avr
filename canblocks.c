@@ -36,53 +36,40 @@
   @date    25.6.2015
   */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <time.h>
-#include <sys/time.h>
-#include <sys/select.h>
-#include <sys/types.h>
-#include <linux/can.h>
-#include <netinet/in.h>
-#include <sys/ioctl.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <util/delay.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "canblocks.h"
-#include "main.h"
-
-/**
-  canblocks-Buffer
-  this is not a ringbuffer, because the creation of one buffer element and
-  it's completion / deletion depends on more than 1 CAN messages, which will
-  be send asynchronously. so the buffer functions have to "search" the whole
-  array everytime.
-  */
 
 /**
   Program Code
   */
 
-struct canblock_frame cbframe;
+struct canblocks_frame cbframe;
 uint8_t cbframe_block;
 uint8_t cbframe_curr_block;
 uint8_t cbframe_ready;
 uint8_t cbframe_cf_counter;
-void cbframe_reset();
+void cbframe_reset(void);
 
 
 void canblocks_init(void) {
   cbframe_reset();
 }
 
-int canblocks_compute_frame(int *socket, struct can_frame *frame) {
-  int status;
+int canblocks_compute_frame(can_t *frame) {
+  int i, length;
+  uint8_t status, sender, receiver;
+  can_t flowcontrol;
+
 
   status = (frame->data[1] & 0xF0) >> 4;
   sender = frame->data[0];
   receiver = (frame->id);
-
+ 
   flowcontrol.id = sender;
   flowcontrol.length = 4;
   flowcontrol.data[0] = receiver;
@@ -101,14 +88,14 @@ int canblocks_compute_frame(int *socket, struct can_frame *frame) {
       /* if not busy copy frame */
       cbframe.sender = sender;
       cbframe.rec = receiver;
-      cbframe.length = frame->data[1] & 0x0F;
-      for(i = 0; i < cbframe.length; i++) {
+      cbframe.dl = frame->data[1] & 0x0F;
+      for(i = 0; i < cbframe.dl; i++) {
         cbframe.data[i] = frame->data[i+2];
       }
       /* set cbframe to ready and return complete */
       cbframe_ready = 1;
       return CANBLOCKS_COMPRET_COMPLETE;
-      break;
+      break;  
     case CANBLOCKS_STATUS_FF:
       /* first frame of multi */
       if(cbframe_block) {
@@ -118,9 +105,9 @@ int canblocks_compute_frame(int *socket, struct can_frame *frame) {
       cbframe_block = 1;
       cbframe_cf_counter = 0;
       cbframe.sender = sender;
-      cbframe.receiver = receiver;
-      cbframe.length = frame->data[1] & 0x0F;
-      for(i = 0; i < cbframe.length; i++)
+      cbframe.rec = receiver;
+      cbframe.dl = frame->data[1] & 0x0F;
+      for(i = 0; i < cbframe.dl; i++)
         cbframe.data[i] = frame->data[i+3];
 
       /* 
@@ -133,7 +120,7 @@ int canblocks_compute_frame(int *socket, struct can_frame *frame) {
       /* simply copy the frame by length */
       cbframe_curr_block++;
       length = frame->length - 2; 
-      for(i = 0; i < lenght; i++) {
+      for(i = 0; i < length; i++) {
         cbframe.data[cbframe_cf_counter + i] = frame->data[i+2];
       }
       cbframe_cf_counter += length;
@@ -152,9 +139,12 @@ int canblocks_compute_frame(int *socket, struct can_frame *frame) {
       return CANBLOCKS_COMPRET_TRANS;
       break;
   }
+  return CANBLOCKS_COMPRET_ERROR;
 }
 
 int canblocks_get_frame(struct canblocks_frame *dst) {
+  int i;
+
   if(cbframe_ready) {
     /* copy cbframe to destination frame */
     dst->sender = cbframe.sender;
@@ -181,6 +171,7 @@ int canblocks_send_frame(struct canblocks_frame *frame) {
     /* wait for FC with timeout */
 
     /* while still bytes to send */
+  return 0;
 }
 
 
@@ -213,7 +204,6 @@ int canblocks_str2fr(char *src, struct canblocks_frame *dst) {
     dst->sender = (uint8_t)sender;
     dst->rec = (uint8_t)rec;
     dst->dl = (uint8_t)dl;
-    dst->data = malloc(sizeof(uint8_t) * dst->dl);
     bufdst = dst->data;
     for(i = 0; i < dst->dl; i++) {
         sscanf(bufbuff, "%02x", &rec); /* read 2 chars put into byte */
@@ -225,6 +215,7 @@ int canblocks_str2fr(char *src, struct canblocks_frame *dst) {
 }
 
 void cbframe_reset() {
+  int i;
   cbframe.sender = 0x00;
   cbframe.rec = 0x00;
   cbframe.dl = 0;
