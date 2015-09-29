@@ -8,7 +8,7 @@
 #include "globals.h"
 #include "uart.h"
 #include "can.h"
-#include "canblocks.h"
+/* #include "canblocks.h" */
 
 uint8_t self = 0x01;
 uint8_t rec = 0xff;
@@ -21,8 +21,17 @@ char uart_buff[256];
 
 int main(void)
 {
+    can_t smsg;
     can_t getmsg;
-    struct canblocks_frame cblocks;
+    /* struct canblocks_frame cblocks; */
+
+    smsg.id = 0x00;
+    smsg.length = 2;
+    smsg.flags.rtr = 0;
+    smsg.flags.extended = 0;
+    smsg.data[0] = 0x01;
+    smsg.data[1] = 0x02;
+
     uart_init();
     _delay_ms(100);
 
@@ -39,7 +48,7 @@ int main(void)
     uart_putln("  email: tobias.schmitt@codm.de");
     uart_putln("(c) cod.m, 2015");
     uart_putln("----------------");
-    can_init(4);
+    can_init(BITRATE_125_KBPS);
     can_filter_t filter = {
         .id = 0,
         .mask = 0,
@@ -48,18 +57,27 @@ int main(void)
             .extended = 0,
         }
     };
-    sei();
 
+    sei();
     can_set_filter(0, &filter);
 
-    canblocks_init();
+    // canblocks_init();
+    uart_putln("CAN init success");
+    uart_putln("----------------");
+    can_send_message(&smsg);
     while (1)
     {
         if(can_check_message()) {
             if(can_get_message(&getmsg)) {
+                /* if(canblocks_compute_frame(&getmsg) == CANBLOCKS_COMPRET_COMPLETE) {
+                    uart_putln("msg rec");
+                } else {
+                    uart_putln("... ");
+                }*/
+                uart_putln("+get");
             }
+            uart_putln("+check");
         }
     }
     return 0;
 }
-

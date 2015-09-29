@@ -110,9 +110,7 @@ int canblocks_compute_frame(can_t *frame) {
       for(i = 0; i < cbframe.dl; i++)
         cbframe.data[i] = frame->data[i+3];
 
-      /* 
-        TODO: SEND FLOWCONTROL FRAME
-        */
+      can_send_message(&flowcontrol);
       return CANBLOCKS_COMPRET_TRANS;
       break;
     case CANBLOCKS_STATUS_CF:
@@ -131,9 +129,7 @@ int canblocks_compute_frame(can_t *frame) {
         return CANBLOCKS_COMPRET_COMPLETE;
       }
       if(cbframe_curr_block % CANBLOCKS_BLOCKSIZE == 0) {
-        /* 
-          TODO: SEND FLOWCONTROL FRAME
-          */
+        can_send_message(&flowcontrol);
       }
 
       return CANBLOCKS_COMPRET_TRANS;

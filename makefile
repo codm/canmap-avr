@@ -80,7 +80,7 @@ OBJDIR = build
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = main.c uart.c canblocks.c
+SRC = main.c uart.c
 
 # List C++ source files here. (C dependencies are automatically generated.)
 CPPSRC =
@@ -262,8 +262,7 @@ LDFLAGS = -Wl,-Map=$(TARGET).map,--cref
 LDFLAGS += $(EXTMEMOPTS)
 LDFLAGS += $(patsubst %,-L%,$(EXTRALIBDIRS))
 LDFLAGS += $(PRINTF_LIB) $(SCANF_LIB) $(MATH_LIB)
-LDFLAGS += -L.
-LDFLAGS += -lcan
+LDFLAGS += -L. -lcan
 #LDFLAGS += -T linker_script.x
 
 
