@@ -57,6 +57,7 @@ void cbframe_reset(void);
 
 
 void canblocks_init(void) {
+  /* make DHCP Style request for CAN_ID */
   cbframe_reset();
 }
 
@@ -219,4 +220,6 @@ void cbframe_reset() {
     cbframe.data[i] = 0x00;
   cbframe_ready = 0;
   cbframe_cf_counter = 0;
+  cbframe_curr_block = 0;
+  cbframe_block = 0;
 }

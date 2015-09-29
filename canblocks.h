@@ -124,4 +124,3 @@ void canblocks_reset_frame(struct canblocks_frame *dst);
 int canblocks_fr2str(char *dst, struct canblocks_frame *src);
 int canblocks_str2fr(char *src, struct canblocks_frame *dst);
 #endif
-  

@@ -79,9 +79,9 @@ int main(void)
 }
 
 void print_blockframe(struct canblocks_frame *src) {
-    uart_puts("+ [");
-    uart_puti(src->dl, 16);
-    uart_puts("]");
+    uart_puts("+[");
+    uart_puti(src->dl, 10);
+    uart_puts("] ");
     uart_puti(src->sender, 16);
     uart_puts("->");
     uart_puti(src->rec, 16);
