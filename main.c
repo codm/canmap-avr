@@ -8,7 +8,7 @@
 #include "globals.h"
 #include "uart.h"
 #include "can.h"
-/* #include "canblocks.h" */
+#include "canblocks.h"
 
 uint8_t self = 0x01;
 uint8_t rec = 0xff;
@@ -23,6 +23,7 @@ int main(void)
 {
     can_t smsg;
     can_t getmsg;
+    struct canblocks_frame blockframe;
     /* struct canblocks_frame cblocks; */
 
     smsg.id = 0x00;
@@ -61,23 +62,29 @@ int main(void)
     sei();
     can_set_filter(0, &filter);
 
-    // canblocks_init();
+    canblocks_init();
     uart_putln("CAN init success");
     uart_putln("----------------");
     can_send_message(&smsg);
     while (1)
     {
-        if(can_check_message()) {
-            if(can_get_message(&getmsg)) {
-                /* if(canblocks_compute_frame(&getmsg) == CANBLOCKS_COMPRET_COMPLETE) {
-                    uart_putln("msg rec");
-                } else {
-                    uart_putln("... ");
-                }*/
-                uart_putln("+get");
+        if(can_check_message() && can_get_message(&getmsg)) {
+            if(canblocks_compute_frame(&getmsg) == CANBLOCKS_COMPRET_COMPLETE) {
+                canblocks_get_frame(&blockframe);
+                print_blockframe(&blockframe);
             }
-            uart_putln("+check");
         }
     }
     return 0;
+}
+
+void print_blockframe(struct canblocks_frame *src) {
+    uart_puts("+ [");
+    uart_puti(src->dl, 16);
+    uart_puts("]");
+    uart_puti(src->sender, 16);
+    uart_puts("->");
+    uart_puti(src->rec, 16);
+    uart_puts(": ");
+    uart_putln(&(src->data[0]));
 }

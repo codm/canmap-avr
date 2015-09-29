@@ -69,7 +69,7 @@ int canblocks_compute_frame(can_t *frame) {
   status = (frame->data[1] & 0xF0) >> 4;
   sender = frame->data[0];
   receiver = (frame->id);
- 
+
   flowcontrol.id = sender;
   flowcontrol.length = 4;
   flowcontrol.data[0] = receiver;
@@ -78,7 +78,7 @@ int canblocks_compute_frame(can_t *frame) {
   flowcontrol.data[3] = CANBLOCKS_MIN_SEP_TIME;
 
   switch(status) {
-    /* 
+    /*
     single frame
     */
     case CANBLOCKS_STATUS_SF:
@@ -95,7 +95,7 @@ int canblocks_compute_frame(can_t *frame) {
       /* set cbframe to ready and return complete */
       cbframe_ready = 1;
       return CANBLOCKS_COMPRET_COMPLETE;
-      break;  
+      break;
     case CANBLOCKS_STATUS_FF:
       /* first frame of multi */
       if(cbframe_block) {
@@ -117,7 +117,7 @@ int canblocks_compute_frame(can_t *frame) {
       /* consecutive frame */
       /* simply copy the frame by length */
       cbframe_curr_block++;
-      length = frame->length - 2; 
+      length = frame->length - 2;
       for(i = 0; i < length; i++) {
         cbframe.data[cbframe_cf_counter + i] = frame->data[i+2];
       }
