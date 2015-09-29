@@ -14,6 +14,7 @@ uint8_t self = 0x01;
 uint8_t rec = 0xff;
 
 char uart_buff[256];
+void print_blockframe(struct canblocks_frame *src);
 
 
 // -----------------------------------------------------------------------------
@@ -62,18 +63,33 @@ int main(void)
     sei();
     can_set_filter(0, &filter);
 
-    canblocks_init();
     uart_putln("CAN init success");
     uart_putln("----------------");
+    canblocks_init();
     can_send_message(&smsg);
     while (1)
     {
+        int ret;
         if(can_check_message() && can_get_message(&getmsg)) {
-            if(canblocks_compute_frame(&getmsg) == CANBLOCKS_COMPRET_COMPLETE) {
-                canblocks_get_frame(&blockframe);
-                print_blockframe(&blockframe);
+            ret = canblocks_compute_frame(&getmsg);
+            switch(ret) {
+                case CANBLOCKS_COMPRET_COMPLETE:
+                    canblocks_get_frame(&blockframe);
+                    print_blockframe(&blockframe);
+                    break;
+                case CANBLOCKS_COMPRET_TRANS:
+                    /*uart_putln("trans pending...");*/
+                    break;
+                case CANBLOCKS_COMPRET_ERROR:
+                    uart_putln("trans error...");
+                    break;
+                case CANBLOCKS_COMPRET_BUSY:
+                    uart_putln("trans engine busy...");
+                    break;
+                default:
+                    uart_putln("somethings very wrong...");
             }
-        }
+        }   
     }
     return 0;
 }
@@ -85,6 +101,5 @@ void print_blockframe(struct canblocks_frame *src) {
     uart_puti(src->sender, 16);
     uart_puts("->");
     uart_puti(src->rec, 16);
-    uart_puts(": ");
-    uart_putln(&(src->data[0]));
+    uart_putln(": <TODO: DATAPRINT>");
 }

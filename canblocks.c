@@ -43,6 +43,7 @@
 #include <stdio.h>
 
 #include "canblocks.h"
+#include "uart.h"
 
 /**
   Program Code
@@ -53,34 +54,35 @@ uint8_t cbframe_block;
 uint8_t cbframe_curr_block;
 uint8_t cbframe_ready;
 uint8_t cbframe_cf_counter;
+can_t flowcontrol;
 void cbframe_reset(void);
 
 
 void canblocks_init(void) {
   /* make DHCP Style request for CAN_ID */
   cbframe_reset();
+
+  flowcontrol.length = 4;
+  flowcontrol.flags.extended = 0;
+  flowcontrol.flags.rtr = 0;
+  flowcontrol.data[1] = ((CANBLOCKS_STATUS_FC << 4) | CANBLOCKS_FLOWSTAT_CLEAR);
+  flowcontrol.data[2] = CANBLOCKS_BLOCKSIZE;
+  flowcontrol.data[3] = CANBLOCKS_MIN_SEP_TIME;
 }
 
 int canblocks_compute_frame(can_t *frame) {
   int i, length;
   uint8_t status, sender, receiver;
-  can_t flowcontrol;
-
-
   status = (frame->data[1] & 0xF0) >> 4;
   sender = frame->data[0];
   receiver = (frame->id);
 
   flowcontrol.id = sender;
-  flowcontrol.length = 4;
   flowcontrol.data[0] = receiver;
-  flowcontrol.data[1] = ((CANBLOCKS_STATUS_FC << 4) | CANBLOCKS_FLOWSTAT_CLEAR);
-  flowcontrol.data[2] = CANBLOCKS_BLOCKSIZE;
-  flowcontrol.data[3] = CANBLOCKS_MIN_SEP_TIME;
 
   switch(status) {
     /*
-    single frame
+    single frame00;
     */
     case CANBLOCKS_STATUS_SF:
       if(cbframe_block) {
@@ -97,39 +99,69 @@ int canblocks_compute_frame(can_t *frame) {
       cbframe_ready = 1;
       return CANBLOCKS_COMPRET_COMPLETE;
       break;
+    /* 
+      first frame 
+      of multi 
+    */
     case CANBLOCKS_STATUS_FF:
-      /* first frame of multi */
       if(cbframe_block) {
         return CANBLOCKS_COMPRET_BUSY;
       }
       cbframe_curr_block = 0;
       cbframe_block = 1;
-      cbframe_cf_counter = 0;
+      cbframe_cf_counter = 5;
       cbframe.sender = sender;
       cbframe.rec = receiver;
-      cbframe.dl = frame->data[1] & 0x0F;
-      for(i = 0; i < cbframe.dl; i++)
+      cbframe.dl = ((frame->data[1] & 0x0F) << 8) | frame->data[2];
+      /* uart_puts("cbframe: (sender: ");
+      uart_puti(cbframe.sender, 16);
+      uart_puts(") (rec: ");
+      uart_puti(cbframe.rec, 16);
+      uart_puts(") (dl: ");
+      uart_puti(cbframe.dl, 16);
+      uart_putln(")"); */
+      for(i = 0; i < (frame->length - 3); i++) {
         cbframe.data[i] = frame->data[i+3];
+        /*uart_puts("cbframe.data[");
+        uart_puti(i, 10);
+        uart_puts("] = ");
+        uart_puti(cbframe.data[i], 10);
+        uart_putln("");*/
+      }
 
-      can_send_message(&flowcontrol);
+      if(!can_send_message(&flowcontrol)) {
+        return CANBLOCKS_COMPRET_ERROR;
+      }
       return CANBLOCKS_COMPRET_TRANS;
       break;
+    /* 
+      consecutive frame
+      of multibyte
+    */
     case CANBLOCKS_STATUS_CF:
       /* consecutive frame */
+      if(cbframe_block == 0) {
+        return CANBLOCKS_COMPRET_ERROR;
+      }
       /* simply copy the frame by length */
       cbframe_curr_block++;
       length = frame->length - 2;
       for(i = 0; i < length; i++) {
         cbframe.data[cbframe_cf_counter + i] = frame->data[i+2];
+        /*uart_puts("cbframe.data[");
+        uart_puti(cbframe_cf_counter + i, 10);
+        uart_puts("] = ");
+        uart_puti(cbframe.data[cbframe_cf_counter + i], 10);
+        uart_putln("");*/
       }
       cbframe_cf_counter += length;
       /* look if everything's over */
-      if(cbframe_cf_counter+1 >= cbframe.dl) {
+      if(cbframe_cf_counter >= cbframe.dl) {
         /* frame finished */
         cbframe_ready = 1;
         return CANBLOCKS_COMPRET_COMPLETE;
       }
-      if(cbframe_curr_block % CANBLOCKS_BLOCKSIZE == 0) {
+      if((frame->data[1] & 0x0F) == CANBLOCKS_BLOCKSIZE - 1) {
         can_send_message(&flowcontrol);
       }
 
