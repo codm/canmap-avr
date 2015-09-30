@@ -44,6 +44,7 @@
 
 #include "canblocks.h"
 #include "uart.h"
+#include "can.h"
 
 /**
   Program Code
@@ -56,6 +57,7 @@ uint8_t cbframe_ready;
 uint8_t cbframe_cf_counter;
 can_t flowcontrol;
 void cbframe_reset(void);
+void cantframe_reset(can_t *src);
 
 
 void canblocks_init(void) {
@@ -192,15 +194,89 @@ int canblocks_get_frame(struct canblocks_frame *dst) {
 }
 
 int canblocks_send_frame(struct canblocks_frame *frame) {
+  uint8_t i, block_count;
+  can_t sframe; /* sending frame */
+  uint16_t send_data_index;
 
-    /* zero rfds and 10000 usec wait */
-    /* single frame */
-    /* build first frame */
-    /* set sock option for timeout */
-    /* wait for FC with timeout */
+  cantframe_reset(&sframe);
+  
+  /* 
+    single frame 
+  */
+  sframe.id = frame->rec;
+  sframe.data[0] = frame->sender;
+  sframe.flags.rtr = 0;
+  sframe.flags.extended = 0;
+  
+  if(frame->dl <= 6) { /* if 1 frame is enough */
+    sframe.length = frame->dl + 2;
+    sframe.data[1] = (CANBLOCKS_STATUS_SF << 4) | frame->dl;
+    for(i = 0; i < frame->dl; i++) {
+      sframe.data[i + 2] = frame->data[i];
+    }
+    if(can_send_message(&sframe)) {
+      return 1;
+    } else {
+      return 0;
+    } 
+  }
 
-    /* while still bytes to send */
-  return 0;
+  /* 
+    multiframe logic 
+  */
+  /* build first frame */
+  block_count = 0;
+  send_data_index = 0; /*actual index where data is send */
+
+  sframe.length = 8;
+  sframe.data[1] = (CANBLOCKS_STATUS_FF << 4) | ((frame->dl & 0x0F00) >> 8);
+  sframe.data[2] = (frame->dl & 0x00FF);
+  for(i = 3; i < 8; i++) {
+    sframe.data[i] = frame->data[send_data_index++];
+  }
+  if(!can_send_message(&sframe)) {
+    return 0;
+  }
+  block_count++;
+  /*
+    WAIT FOR FLOWCONTROL FRAME HERE 
+   */
+
+  /* while still bytes to send */
+  while((frame->dl - send_data_index) > 0) { /* if there are still bytes left */
+    if((frame->dl - send_data_index) > 6) { /* if it's more than 6 bytes (not last msg) */
+      /* build consecutive frame */
+      sframe.length = 8;
+      sframe.data[1] = (CANBLOCKS_STATUS_CF << 4) | block_count;
+      for(i = 2; i < 8; i++) {
+        sframe.data[i] = frame->data[send_data_index++];
+      }
+
+      /* send frame */
+      if(!can_send_message(&sframe)) {
+        return 0;
+      }
+      block_count++;
+
+      /* check if has to wait for flowcontrol */
+      if(block_count > CANBLOCKS_BLOCKSIZE - 1) {
+        block_count = 0;
+      }
+    } else {
+      /* compute last length and build frame, send */
+      sframe.length = (frame->dl - send_data_index) + 2;
+      sframe.data[1] = (CANBLOCKS_STATUS_CF << 4) | block_count;
+      for(i = 2; i < sframe.length; i++) {
+        sframe.data[i] = frame->data[send_data_index++];
+      }
+
+      /* send frame */
+      if(!can_send_message(&sframe)) {
+        return 0;
+      }
+    }
+  }
+  return 1;
 }
 
 
@@ -254,4 +330,15 @@ void cbframe_reset() {
   cbframe_cf_counter = 0;
   cbframe_curr_block = 0;
   cbframe_block = 0;
+}
+
+void cantframe_reset(can_t *src) {
+    int i;
+    src->id = 0;
+    src->length = 0;
+    src->flags.rtr = 0;
+    src->flags.extended = 0;
+    for(i = 0; i < 8; i++) {
+        src->data[i] = 0;
+    }
 }
