@@ -9,6 +9,7 @@
 #include "uart.h"
 #include "can.h"
 #include "canblocks.h"
+#include "timer.h"
 
 uint8_t self = 0x01;
 uint8_t rec = 0xff;
@@ -86,10 +87,22 @@ int main(void)
 
     uart_putln("CAN init success");
     uart_putln("----------------");
+
+    timer0_init();
+    uart_putln("timer0_init");
+    /* uart_putln("test 2 sec");
+    timer0_timeout(2000);
+    uint32_t stamp = timer0_get_ms_stamp();
+    uart_puti(stamp, 10);
+    uart_puts("ms -> ");
+    while(!(timer0_timeout(0)));
+    stamp = timer0_get_ms_stamp();
+    uart_puti(stamp, 10);
+    uart_putln("ms"); */ 
+    uart_putln("----------------");
     canblocks_init();
     can_send_message(&smsg);
-    while (1)
-    {
+    while (1) {
         int ret;
         if(can_check_message() && can_get_message(&getmsg)) {
             ret = canblocks_compute_frame(&getmsg);
@@ -123,11 +136,26 @@ int main(void)
 }
 
 void print_blockframe(struct canblocks_frame *src) {
-    uart_puts("+[");
+    uart_puts(" + [");
     uart_puti(src->dl, 10);
     uart_puts("] ");
     uart_puti(src->sender, 16);
     uart_puts("->");
     uart_puti(src->rec, 16);
     uart_putln(": <TODO: DATAPRINT>");
+}
+
+void print_timestamp(uint8_t linebreak) {
+    uint8_t sec,min;
+    uint16_t h;
+    timer0_gettime(&sec, &min, &h);
+    uart_putc('<');
+    uart_puti(h, 10);
+    uart_putc(':');
+    uart_puti(min, 10);
+    uart_putc(':');
+    uart_puti(sec, 10);
+    uart_putc('>');
+    if(linebreak)
+        uart_putln("");
 }
