@@ -136,13 +136,19 @@ int main(void)
 }
 
 void print_blockframe(struct canblocks_frame *src) {
+    uint8_t i;
     uart_puts(" + [");
     uart_puti(src->dl, 10);
     uart_puts("] ");
     uart_puti(src->sender, 16);
     uart_puts("->");
     uart_puti(src->rec, 16);
-    uart_putln(": <TODO: DATAPRINT>");
+    uart_puts(" [");
+    for(i = 0; i < src->dl; i++) {
+        uart_puti(src->data[i], 16);
+        uart_putc(':');
+    }
+    uart_putln("]");
 }
 
 void print_timestamp(uint8_t linebreak) {
