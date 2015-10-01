@@ -7,7 +7,7 @@
 
 void timer0_init(void);
 
-uint32_t timer0_gettime(uint8_t *sec, uint8_t *min, uint32_t *h);
+uint32_t timer0_gettime(uint8_t *sec, uint8_t *min, uint16_t *h);
 
 uint32_t timer0_get_ms_stamp(void);
 
