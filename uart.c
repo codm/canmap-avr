@@ -49,14 +49,14 @@ void uart_putln(char *s)
 }
 
 void uart_puti(unsigned int val, int base) {
-    char prbuff[32];
+    char prbuff[16+1];
     itoa(val, &prbuff[0], base);
     uart_puts(&prbuff[0]);
 }
 
 void uart_putl(unsigned long val, int base) {
-    char pfbuff[32];
-    ltoa(val, &pfbuff[0], base);
+    char pfbuff[32+1];
+    ultoa(val, &pfbuff[0], base);
     uart_puts(&pfbuff[0]);
 }
 
