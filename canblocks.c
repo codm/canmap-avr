@@ -43,6 +43,7 @@
 #include <stdio.h>
 
 #include "canblocks.h"
+#include "timer.h"
 #include "uart.h"
 #include "can.h"
 
@@ -58,6 +59,7 @@ uint8_t cbframe_cf_counter;
 can_t flowcontrol;
 void cbframe_reset(void);
 void cantframe_reset(can_t *src);
+uint8_t wait_flowcontrol(uint32_t ms, struct flowcontrol_frame *fcf); /* wait function for flowcontrol */
 
 
 void canblocks_init(void) {
@@ -197,6 +199,7 @@ int canblocks_send_frame(struct canblocks_frame *frame) {
   uint8_t i, block_count;
   can_t sframe; /* sending frame */
   uint16_t send_data_index;
+  struct flowcontrol_frame fcframe; /* place for a flowcontrol frame */
 
   cantframe_reset(&sframe);
   
@@ -238,9 +241,12 @@ int canblocks_send_frame(struct canblocks_frame *frame) {
     return 0;
   }
   block_count++;
-  /*
-    WAIT FOR FLOWCONTROL FRAME HERE 
-   */
+  if(!wait_flowcontrol(2000, &fcframe))
+    return 0;
+  
+  timer0_timeout(fcframe.septime);
+  while(!timer0_timeout(fcframe.septime));
+
 
   /* while still bytes to send */
   while((frame->dl - send_data_index) > 0) { /* if there are still bytes left */
@@ -261,7 +267,12 @@ int canblocks_send_frame(struct canblocks_frame *frame) {
       /* check if has to wait for flowcontrol */
       if(block_count > CANBLOCKS_BLOCKSIZE - 1) {
         block_count = 0;
+        if(!wait_flowcontrol(2000, &fcframe))
+            return 0;
       }
+      timer0_timeout(fcframe.septime);
+      while(!timer0_timeout(fcframe.septime));
+
     } else {
       /* compute last length and build frame, send */
       sframe.length = (frame->dl - send_data_index) + 2;
@@ -269,7 +280,6 @@ int canblocks_send_frame(struct canblocks_frame *frame) {
       for(i = 2; i < sframe.length; i++) {
         sframe.data[i] = frame->data[send_data_index++];
       }
-
       /* send frame */
       if(!can_send_message(&sframe)) {
         return 0;
@@ -341,4 +351,24 @@ void cantframe_reset(can_t *src) {
     for(i = 0; i < 8; i++) {
         src->data[i] = 0;
     }
+}
+
+uint8_t wait_flowcontrol(uint32_t ms, struct flowcontrol_frame *fcf) {
+    can_t getmsg;
+    uint8_t status;
+    timer0_timeout(ms);
+    while(!timer0_timeout(0)) {
+        if(can_check_message() && can_get_message(&getmsg)) {
+            status = (getmsg.data[1] & 0xF0) >> 4;
+            if(status == CANBLOCKS_STATUS_FC) {
+                fcf->sender = getmsg.data[0];
+                fcf->rec = getmsg.id;
+                fcf->flowstatus = getmsg.data[1] & 0x0F;
+                fcf->blocksize = getmsg.data[2];
+                fcf->septime = getmsg.data[3];
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
