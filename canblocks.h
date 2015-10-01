@@ -77,6 +77,14 @@ struct canblocks_frame {
     uint8_t data[CANBLOCKS_DATA_LENGTH]; /**< Data Pointer of ISO-TP Frame */
 };
 
+struct flowcontrol_frame {
+    uint8_t sender; /* sender */
+    uint8_t rec; /* receiver */
+    uint8_t flowstatus; /* flowstatus: CANBLOCKS_FLOWSTAT_ ... */
+    uint8_t blocksize; /* blocksize: size of blocks between FC frames */
+    uint8_t septime; /* septime: timeout between frames */
+};
+
 /**
   \brief !MANDATORY! init the needed canblocks data structs
 */
