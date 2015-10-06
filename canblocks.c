@@ -103,9 +103,9 @@ int canblocks_compute_frame(can_t *frame) {
       cbframe_ready = 1;
       return CANBLOCKS_COMPRET_COMPLETE;
       break;
-    /* 
-      first frame 
-      of multi 
+    /*
+      first frame
+      of multi
     */
     case CANBLOCKS_STATUS_FF:
       if(cbframe_block) {
@@ -138,7 +138,7 @@ int canblocks_compute_frame(can_t *frame) {
       }
       return CANBLOCKS_COMPRET_TRANS;
       break;
-    /* 
+    /*
       consecutive frame
       of multibyte
     */
@@ -202,15 +202,15 @@ int canblocks_send_frame(struct canblocks_frame *frame) {
   struct flowcontrol_frame fcframe; /* place for a flowcontrol frame */
 
   cantframe_reset(&sframe);
-  
-  /* 
-    single frame 
+
+  /*
+    single frame
   */
   sframe.id = frame->rec;
   sframe.data[0] = frame->sender;
   sframe.flags.rtr = 0;
   sframe.flags.extended = 0;
-  
+
   if(frame->dl <= 6) { /* if 1 frame is enough */
     sframe.length = frame->dl + 2;
     sframe.data[1] = (CANBLOCKS_STATUS_SF << 4) | frame->dl;
@@ -221,11 +221,11 @@ int canblocks_send_frame(struct canblocks_frame *frame) {
       return 1;
     } else {
       return 0;
-    } 
+    }
   }
 
-  /* 
-    multiframe logic 
+  /*
+    multiframe logic
   */
   /* build first frame */
   block_count = 0;
@@ -243,7 +243,7 @@ int canblocks_send_frame(struct canblocks_frame *frame) {
   block_count++;
   if(!wait_flowcontrol(2000, &fcframe))
     return 0;
-  
+
   timer0_timeout(fcframe.septime);
   while(!timer0_timeout(fcframe.septime));
 
@@ -351,6 +351,15 @@ void cantframe_reset(can_t *src) {
     for(i = 0; i < 8; i++) {
         src->data[i] = 0;
     }
+}
+
+void canblocks_reset_frame(struct canblocks_frame *src) {
+    int i;
+    src->sender = 0x00;
+    src->rec = 0x00;
+    src->dl = 0;
+    for(i = 0; i < CANBLOCKS_DATA_LENGTH; i++)
+        src->data[i] = 0x00;
 }
 
 uint8_t wait_flowcontrol(uint32_t ms, struct flowcontrol_frame *fcf) {

@@ -26,14 +26,6 @@ int main(void)
     /* init vars */
     can_t getmsg;
     struct canblocks_frame getframe;
-    
-    can_t smsg = {
-        .id = 0xFF,
-        .length = 4,
-        .flags.rtr = 0,
-        .flags.extended = 0,
-        .data = {0xDE, 0xAD, 0xBE, 0xEF}
-    };
 
     can_filter_t filter = {
         .id = 0,
@@ -42,24 +34,6 @@ int main(void)
             .rtr = 0,
             .extended = 0,
         }
-    };
-
-    struct canblocks_frame sframe = {
-        .sender = 0x01,
-        .rec = 0x00,
-        .dl = 72,
-        .data = {0x01, 0x02, 0x03, 0x04, 0x05, 0x01,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x01,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x01,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x01,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x01,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x01,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x01,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x01,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x01,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x01,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x01,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x01}
     };
 
     /* struct canblocks_frame cblocks; */
@@ -98,22 +72,22 @@ int main(void)
     while(!(timer0_timeout(0)));
     stamp = timer0_get_ms_stamp();
     uart_puti(stamp, 10);
-    uart_putln("ms"); */ 
+    uart_putln("ms"); */
     uart_putln("----------------");
     canblocks_init();
-    can_send_message(&smsg);
     while (1) {
-        int ret;
+        int ret, buff;
         if(can_check_message() && can_get_message(&getmsg)) {
             ret = canblocks_compute_frame(&getmsg);
             switch(ret) {
                 case CANBLOCKS_COMPRET_COMPLETE:
                     canblocks_get_frame(&getframe);
                     print_blockframe(&getframe);
-                    uart_putln("sending frame...");
-                    if(canblocks_send_frame(&sframe)) {
-                        uart_putln("success");
-                        print_blockframe(&sframe);
+                    buff = getframe.sender;
+                    getframe.sender = getframe.rec;
+                    getframe.rec = buff;
+                    if(canblocks_send_frame(&getframe)) {
+                        print_blockframe(&getframe);
                     } else {
                         uart_putln("could not send canblocksframe....");
                     }
@@ -122,21 +96,26 @@ int main(void)
                     /*uart_putln("trans pending...");*/
                     break;
                 case CANBLOCKS_COMPRET_ERROR:
+                    print_timestamp(0);
                     uart_putln("trans error...");
                     break;
                 case CANBLOCKS_COMPRET_BUSY:
                     uart_putln("trans engine busy...");
+                    print_timestamp(0);
                     break;
                 default:
                     uart_putln("somethings very wrong...");
+                    print_timestamp(0);
             }
-        }   
+            canblocks_reset_frame(&getframe);
+        }
     }
     return 0;
 }
 
 void print_blockframe(struct canblocks_frame *src) {
     uint8_t i;
+    print_timestamp(0);
     uart_puts(" + [");
     uart_puti(src->dl, 10);
     uart_puts("] ");
