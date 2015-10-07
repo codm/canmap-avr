@@ -265,7 +265,7 @@ int canblocks_send_frame(struct canblocks_frame *frame) {
       block_count++;
 
       /* check if has to wait for flowcontrol */
-      if(block_count > CANBLOCKS_BLOCKSIZE - 1) {
+      if(block_count >= fcframe.blocksize) {
         block_count = 0;
         if(!wait_flowcontrol(2000, &fcframe))
             return 0;
