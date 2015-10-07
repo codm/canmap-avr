@@ -245,7 +245,7 @@ int canblocks_send_frame(struct canblocks_frame *frame) {
     return 0;
 
   timer0_timeout(fcframe.septime);
-  while(!timer0_timeout(fcframe.septime));
+  while(!timer0_timeout(0));
 
 
   /* while still bytes to send */
@@ -271,7 +271,7 @@ int canblocks_send_frame(struct canblocks_frame *frame) {
             return 0;
       }
       timer0_timeout(fcframe.septime);
-      while(!timer0_timeout(fcframe.septime));
+      while(!timer0_timeout(0));
 
     } else {
       /* compute last length and build frame, send */
