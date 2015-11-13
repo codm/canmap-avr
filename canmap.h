@@ -24,8 +24,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 
-   \brief CANBLOCKS library for AT90CAN
-   This is a CANBLOCKS extended adress implementation for AT90CAN mCs.
+   \brief CANMAP library for AT90CAN
+   This is a CANMAP extended adress implementation for AT90CAN mCs.
    It uses the avr-can-lib ("universelle CAN Bibliothek") by Fabian Greiff.
 
    https://github.com/dergraaf/avr-can-lib
@@ -38,59 +38,59 @@ THE SOFTWARE.
    @date    24.6.2015
 */
 
-#ifndef _CANBLOCKS_H
-#define _CANBLOCKS_H
+#ifndef _CANMAP_H
+#define _CANMAP_H
 
 /*
    Defines
 */
 #include "can.h"
 
-#define CANBLOCKS_BUFFER_SIZE        20      /* Buffer size can be chosen freely */
-#define CANBLOCKS_DATA_LENGTH        256
-#define CANBLOCKS_BLOCKSIZE          4       /* Maximum 16 Blocks  */
-#define CANBLOCKS_MIN_SEP_TIME       25      /* Min 10ms Seperation time  */
-#define CANBLOCKS_BROADCAST          0xFF    /* Broadcast Adress */
+#define CANMAP_BUFFER_SIZE        20      /* Buffer size can be chosen freely */
+#define CANMAP_DATA_LENGTH        256
+#define CANMAP_BLOCKSIZE          4       /* Maximum 16 Blocks  */
+#define CANMAP_MIN_SEP_TIME       25      /* Min 10ms Seperation time  */
+#define CANMAP_BROADCAST          0xFF    /* Broadcast Adress */
 
-#define CANBLOCKS_STATUS_SF          0x00    /* Single Frame */
-#define CANBLOCKS_STATUS_FF          0x01    /* First Frame */
-#define CANBLOCKS_STATUS_CF          0x02    /* Consecutive Frames */
-#define CANBLOCKS_STATUS_FC          0x03    /* Flow Control Frame */
+#define CANMAP_STATUS_SF          0x00    /* Single Frame */
+#define CANMAP_STATUS_FF          0x01    /* First Frame */
+#define CANMAP_STATUS_CF          0x02    /* Consecutive Frames */
+#define CANMAP_STATUS_FC          0x03    /* Flow Control Frame */
 
-#define CANBLOCKS_COMPRET_COMPLETE   1       /* Transmission Complete */
-#define CANBLOCKS_COMPRET_TRANS      0       /* Transmission pending... */
-#define CANBLOCKS_COMPRET_ERROR      -1      /* No ISO-TP Frame or no fre buffer */
-#define CANBLOCKS_COMPRET_BUSY       2       /* CANBLOCKS Mechanism Busy with another message */
+#define CANMAP_COMPRET_COMPLETE   1       /* Transmission Complete */
+#define CANMAP_COMPRET_TRANS      0       /* Transmission pending... */
+#define CANMAP_COMPRET_ERROR      -1      /* No ISO-TP Frame or no fre buffer */
+#define CANMAP_COMPRET_BUSY       2       /* CANMAP Mechanism Busy with another message */
 
-#define CANBLOCKS_FLOWSTAT_CLEAR     0
-#define CANBLOCKS_FLOWSTAT_WAIT      1
-#define CANBLOCKS_FLOWSTAT_OVERFLOW  2
+#define CANMAP_FLOWSTAT_CLEAR     0
+#define CANMAP_FLOWSTAT_WAIT      1
+#define CANMAP_FLOWSTAT_OVERFLOW  2
 
 /**
   \brief Abstract struct of a ISO-TP frame
   this is a typical ISO-TP frame for extended CAN Addressing
 */
-struct canblocks_frame {
+struct canmap_frame {
     uint8_t sender; /**< Sender-ID of ISO-TP Frame */
     uint8_t rec; /**< Receiver-ID of ISO-TP Frame */
     uint16_t dl; /**< Length of ISO-TP Frame */
-    uint8_t data[CANBLOCKS_DATA_LENGTH]; /**< Data Pointer of ISO-TP Frame */
+    uint8_t data[CANMAP_DATA_LENGTH]; /**< Data Pointer of ISO-TP Frame */
 };
 
 struct flowcontrol_frame {
     uint8_t sender; /* sender */
     uint8_t rec; /* receiver */
-    uint8_t flowstatus; /* flowstatus: CANBLOCKS_FLOWSTAT_ ... */
+    uint8_t flowstatus; /* flowstatus: CANMAP_FLOWSTAT_ ... */
     uint8_t blocksize; /* blocksize: size of blocks between FC frames */
     uint8_t septime; /* septime: timeout between frames */
 };
 
 /**
-  \brief !MANDATORY! init the needed canblocks data structs
+  \brief !MANDATORY! init the needed CANMAP data structs
 */
 
 
-void canblocks_init(void);
+void canmap_init(void);
 /**
   \brief computes can_frame into internal buffer
   This function computes a can_frame into its internal iso_tp
@@ -102,33 +102,33 @@ void canblocks_init(void);
   @param[0] can_frame *frame can frame to be processed
 
   @return < 0 for error, 0 if there are still messages to come
-            1 if the canblocks_frame is finished and ready to get
+            1 if the canmap_frame is finished and ready to get
 */
-int canblocks_compute_frame(can_t *frame);
+int canmap_compute_frame(can_t *frame);
 
 /**
-  \brief sends an canblocks frame over socket
+  \brief sends an CANMAP frame over socket
 
   @param[0] int *socket        pointer to an open CAN_SOCKET
-  @param[0] canblocks_frame *frame frame to be sent
+  @param[0] canmap_frame *frame frame to be sent
 
   @return EXIT_SUCCESS for success
           EXIT_FAILURE for failure
 
 */
-int canblocks_send_frame(struct canblocks_frame *frame);
+int canmap_send_frame(struct canmap_frame *frame);
 
 /**
   \brief gets a finished ISO-TP frame for further computation
 
-  @param[0] canblocks_frame **dst pointer to a frame which should be written
+  @param[0] canmap_frame **dst pointer to a frame which should be written
 
   @return EXIT_SUCCESS for success
           EXIT_FAILURE for failure
 */
-int canblocks_get_frame(struct canblocks_frame *dst);
-void canblocks_reset_frame(struct canblocks_frame *dst);
+int canmap_get_frame(struct canmap_frame *dst);
+void canmap_reset_frame(struct canmap_frame *dst);
 
-int canblocks_fr2str(char *dst, struct canblocks_frame *src);
-int canblocks_str2fr(char *src, struct canblocks_frame *dst);
+int canmap_fr2str(char *dst, struct canmap_frame *src);
+int canmap_str2fr(char *src, struct canmap_frame *dst);
 #endif

@@ -70,7 +70,7 @@ FORMAT = ihex
 
 
 # Target file name (without extension).
-TARGET = codm-canblocks
+TARGET = codm-canmap
 
 
 # Object files directory
@@ -80,7 +80,7 @@ OBJDIR = build
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = main.c uart.c canblocks.c timer.c
+SRC = main.c uart.c canmap.c timer.c
 
 # List C++ source files here. (C dependencies are automatically generated.)
 CPPSRC =

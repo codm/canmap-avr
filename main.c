@@ -8,14 +8,14 @@
 #include "globals.h"
 #include "uart.h"
 #include "can.h"
-#include "canblocks.h"
+#include "canmap.h"
 #include "timer.h"
 
 uint8_t self = 0x01;
 uint8_t rec = 0xff;
 
 char uart_buff[256];
-void print_blockframe(struct canblocks_frame *src);
+void print_blockframe(struct canmap_frame *src);
 
 
 // -----------------------------------------------------------------------------
@@ -25,7 +25,7 @@ int main(void)
 {
     /* init vars */
     can_t getmsg;
-    struct canblocks_frame getframe;
+    struct canmap_frame getframe;
 
     can_filter_t filter = {
         .id = 0,
@@ -36,7 +36,7 @@ int main(void)
         }
     };
 
-    /* struct canblocks_frame cblocks; */
+    /* struct canmap_frame cblocks; */
 
     uart_init();
     _delay_ms(100);
@@ -48,7 +48,7 @@ int main(void)
        */
     uart_putln("");
     uart_putln("----------------");
-    uart_putln("cod.m CanBlocks");
+    uart_putln("cod.m canmap");
     uart_putln("  test device program");
     uart_putln("  Author: Tobias Schmitt");
     uart_putln("  email: tobias.schmitt@codm.de");
@@ -74,32 +74,32 @@ int main(void)
     uart_puti(stamp, 10);
     uart_putln("ms"); */
     uart_putln("----------------");
-    canblocks_init();
+    canmap_init();
     while (1) {
         int ret, buff;
         if(can_check_message() && can_get_message(&getmsg)) {
-            ret = canblocks_compute_frame(&getmsg);
+            ret = canmap_compute_frame(&getmsg);
             switch(ret) {
-                case CANBLOCKS_COMPRET_COMPLETE:
-                    canblocks_get_frame(&getframe);
+                case CANMAP_COMPRET_COMPLETE:
+                    canmap_get_frame(&getframe);
                     print_blockframe(&getframe);
                     buff = getframe.sender;
                     getframe.sender = getframe.rec;
                     getframe.rec = buff;
-                    if(canblocks_send_frame(&getframe)) {
+                    if(canmap_send_frame(&getframe)) {
                         print_blockframe(&getframe);
                     } else {
-                        uart_putln("could not send canblocksframe....");
+                        uart_putln("could not send canmapframe....");
                     }
                     break;
-                case CANBLOCKS_COMPRET_TRANS:
+                case CANMAP_COMPRET_TRANS:
                     /*uart_putln("trans pending...");*/
                     break;
-                case CANBLOCKS_COMPRET_ERROR:
+                case CANMAP_COMPRET_ERROR:
                     print_timestamp(0);
                     uart_putln("trans error...");
                     break;
-                case CANBLOCKS_COMPRET_BUSY:
+                case CANMAP_COMPRET_BUSY:
                     uart_putln("trans engine busy...");
                     print_timestamp(0);
                     break;
@@ -107,13 +107,13 @@ int main(void)
                     uart_putln("somethings very wrong...");
                     print_timestamp(0);
             }
-            canblocks_reset_frame(&getframe);
+            canmap_reset_frame(&getframe);
         }
     }
     return 0;
 }
 
-void print_blockframe(struct canblocks_frame *src) {
+void print_blockframe(struct canmap_frame *src) {
     uint8_t i;
     print_timestamp(0);
     uart_puts(" + [");
